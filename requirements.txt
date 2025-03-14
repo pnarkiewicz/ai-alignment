@@ -4,10 +4,11 @@ datasets
 bitsandbytes==0.41.3.post2
 deepspeed==0.15.1
 einops
+fuzzysearch
 matplotlib
 matplotlib-inline
 ninja==1.11.1
-numpy>=2.0
+numpy==1.26.4
 openai>=1.51.0
 pandas==1.5.3
 peft==0.5.0
@@ -21,7 +22,7 @@ rich
 seaborn
 sentence_transformers
 sentencepiece==0.1.99
-scipy==1.10.1
+scipy
 spacy
 torch>=2.0.1
 transformers>=4.41.2
