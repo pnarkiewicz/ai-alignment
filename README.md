@@ -1,5 +1,25 @@
 #  NYU Debate Modeling Project
 
+# Setup notes -- Piotrek:
+* Należy stworzyć plik `.env` w bazowym folderze:
+  ```
+  SRC_ROOT=/ścieżka/do/repo/
+  INPUT_ROOT=/ścieżka/do/repo/data/datasets/
+  ```
+  (ścieżki muszą kończyć się znakiem '/')
+* Podstawowy test:
+  ```
+  python3.11 -m venv venv
+  soruce venv/bin/activate
+  pip install -r requirements.txt
+  bash bash_scripts/basic_tests.sh
+  ```
+
+Zmiany:
+* Poluzowałem requirements.txt -- w oryginalnym repo były konflikty (mam nadzieję, że nic się potem nie wysypie)
+* Wyrzuciłem jeden niezdefiniowany test w `basic_tests.sh`
+
+
 Note: Given the current state of this project, this README will just give an overview of the code structure. It is not an introduction to the overall effort.
 
 ## Setup
