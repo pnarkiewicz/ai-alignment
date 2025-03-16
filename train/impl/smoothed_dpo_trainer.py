@@ -46,7 +46,6 @@ from transformers import (
 from transformers.trainer_callback import TrainerCallback
 from transformers.trainer_utils import EvalLoopOutput
 
-from trl.import_utils import is_peft_available, is_wandb_available
 from trl.models import PreTrainedModelWrapper, create_reference_model
 from trl.trainer.utils import (
     DPODataCollatorWithPadding,
@@ -57,12 +56,22 @@ from trl.trainer.utils import (
 )
 
 
-if is_peft_available():
-    from peft import PeftModel, get_peft_model, prepare_model_for_kbit_training
+PEFT_AVAILABLE = True
+try:
+    from peft import (
+        PeftModel,
+        get_peft_model,
+        prepare_model_for_kbit_training,
+    )
+except ImportError:
+    print("PEFT is not installed. Please install it to use the PEFT models.")
+    PEFT_AVAILABLE = False
 
-
-if is_wandb_available():
+WANDB_AVAILABLE = True
+try:
     import wandb
+except ImportError:
+    WANDB_AVAILABLE = False
 
 if is_deepspeed_available():
     import deepspeed
@@ -214,11 +223,11 @@ class SmoothedDPOTrainer(Trainer):
         # has been called in order to properly call autocast if needed.
         self._peft_has_been_casted_to_bf16 = False
 
-        if not is_peft_available() and peft_config is not None:
+        if not PEFT_AVAILABLE and peft_config is not None:
             raise ValueError(
                 "PEFT is not installed and you passed a `peft_config` in the trainer's kwargs, please install it to use the PEFT models"
             )
-        elif is_peft_available() and peft_config is not None:
+        elif PEFT_AVAILABLE and peft_config is not None:
             # if model is a peft model and we have a peft_config, we merge and unload it first
             if isinstance(model, PeftModel):
                 if ignore_peft:
@@ -281,7 +290,7 @@ class SmoothedDPOTrainer(Trainer):
 
                 model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
 
-        if generate_during_eval and not is_wandb_available():
+        if generate_during_eval and not WANDB_AVAILABLE:
             raise ValueError(
                 "`generate_during_eval=True` requires Weights and Biases to be installed."
                 " Please install `wandb` to resolve."
@@ -294,7 +303,7 @@ class SmoothedDPOTrainer(Trainer):
         else:
             self.is_encoder_decoder = is_encoder_decoder
 
-        self.is_peft_model = is_peft_available() and isinstance(model, PeftModel)
+        self.is_peft_model = PEFT_AVAILABLE and isinstance(model, PeftModel)
         self.model_adapter_name = model_adapter_name
         self.ref_adapter_name = ref_adapter_name
         self.reference_free = reference_free

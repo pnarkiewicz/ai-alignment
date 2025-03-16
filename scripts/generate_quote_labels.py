@@ -2,7 +2,7 @@ from script_utils import ScriptUtils
 
 ScriptUtils.setup_script()
 
-from data import QuoteRelevanceLoader, QuoteRelevanceDataset, QuoteRelevanceProcessedBatchItem, QuoteRelevanceTopicInfo
+from data import QuoteRelevanceLoader, QuoteRelevanceProcessedBatchItem, QuoteRelevanceTopicInfo
 from models import OpenAIModel, ModelInput
 from prompts import RoleType
 from utils import input_utils

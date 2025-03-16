@@ -1,6 +1,5 @@
 from debate import DebateRoundSummary, QuestionMetadata
-from experiments.annotator import Annotator
-from experiments.experiment_loader import ExperimentConfig, ExperimentLoader
+from experiments.experiment_loader import ExperimentConfig
 from experiments.quotes_collector import QuotesCollector
 from utils import InputType, input_utils, logger_utils
 import utils.constants as constants
@@ -14,9 +13,7 @@ import seaborn as sns
 import scipy.optimize
 import scipy.stats
 
-from enum import Enum
-from typing import Optional, Union, Any
-import copy
+from typing import Optional, Any
 import json
 import math
 import os

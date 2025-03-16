@@ -4,7 +4,7 @@ import pandas as pd
 
 from enum import Enum
 from io import StringIO
-from typing import Callable, Union
+from typing import Callable
 import json
 import os
 import re

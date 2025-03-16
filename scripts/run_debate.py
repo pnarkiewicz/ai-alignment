@@ -5,8 +5,6 @@ ScriptUtils.setup_script()
 from experiments import ExperimentLoader, ResultsCollector
 from utils import logger_utils
 
-from tqdm import tqdm
-
 from datetime import datetime
 
 args = ScriptUtils.get_args()

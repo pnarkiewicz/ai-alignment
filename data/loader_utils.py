@@ -7,7 +7,6 @@ from data.quality_debates_loader import QualityConsultancyLoader, QualityDebates
 from data.quality_judging_loader import QualityJudgingLoader
 from data.quote_relevance_loader import QuoteRelevanceLoader
 
-from enum import Enum
 from typing import Type
 
 

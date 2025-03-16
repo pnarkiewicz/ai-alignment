@@ -2,12 +2,7 @@ from script_utils import ScriptUtils
 
 ScriptUtils.setup_script()
 
-from experiments import ExperimentLoader, ResultsCollector
-from utils import logger_utils
-
-from tqdm import tqdm
-
-from datetime import datetime
+from experiments import ExperimentLoader
 
 args = ScriptUtils.get_args()
 config = ScriptUtils.get_debate_round_script_config(args)

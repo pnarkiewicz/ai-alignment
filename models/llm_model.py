@@ -3,7 +3,7 @@ from __future__ import annotations
 from models.model import GenerationParams, Model, ModelInput, ModelResponse, ProbeHyperparams, SpeechStructure
 from models.openai_model import OpenAIModel
 from prompts import RoleType
-from utils import logger_utils, string_utils, timer
+from utils import logger_utils, string_utils, timer, get_device
 import utils.constants as constants
 
 from peft import PeftModel
@@ -23,6 +23,15 @@ import io
 import math
 import os
 import random
+
+HAVE_FLASH = False
+try:
+    import flash_attn
+    HAVE_FLASH = True
+except ImportError:
+    print("Flash attention not available")
+
+
 
 
 class LLMInput(BaseModel):
@@ -185,12 +194,12 @@ class LLModel(Model):
             pretrained_model_name_or_path=peft_base_model or file_path,
             device_map=device_map,
             trust_remote_code=True,
-            use_flash_attention_2=True,
+            use_flash_attention_2=HAVE_FLASH,
             use_cache=use_cache,
             token=os.getenv("META_ACCESS_TOKEN") if requires_token else None,
             quantization_config=LLModel.get_bnb_config() if quantize else None,
             torch_dtype=None if quantize else torch.bfloat16,
-        )
+        ).to(get_device())
 
         if peft_base_model:
             model = PeftModel.from_pretrained(model=model, model_id=file_path, adapter_name="default", is_trainable=False)
@@ -350,7 +359,7 @@ class LLModel(Model):
 
         validate()
         self.model.eval()
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = get_device()
         input_strs = self.generate_input_strs(inputs=inputs, speech_structure=speech_structure)
         sequences, input_lengths, logits = generate_output(input_strs=input_strs)
 
@@ -607,7 +616,7 @@ class LLModuleWithLinearProbe(nn.Module):
     def __init__(self, base_model: LLModel, linear_idxs: Optional[list[int]] = None, file_path: str = ""):
         super().__init__()
         self.linear_idxs = linear_idxs or [-1]
-        self.base_model = base_model.model.to("cuda")
+        self.base_model = base_model.model.to(get_device())
         self.base_model.eval()
         self.config = self.base_model.config
         self.probe = LLModuleWithLinearProbe.instantiate_probe(
@@ -618,7 +627,7 @@ class LLModuleWithLinearProbe(nn.Module):
 
     @classmethod
     def instantiate_probe(cls, file_path: str, linear_idxs: list[int], hidden_size: int) -> nn.Module:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = get_device()
         probe = nn.Linear(in_features=hidden_size * len(linear_idxs), out_features=1)
         if file_path:
             probe.load_state_dict(torch.load(file_path))
