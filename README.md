@@ -26,6 +26,7 @@ Jest mac-friendly (`BLIS_ARCH=generic`) i buduje się dosyć szybko ([tutorial o
 
 Problemy:
 * Mam problem z puszczeniem treningu nawet na małych modelach (`opt-125m`) na macu (brak pamięci)
+* Sporo bug'ów przy odpalaniu `scripts/run_ppo.py` -- kod częściowo wygląda na nieaktualny
 
 ## Setup
 
