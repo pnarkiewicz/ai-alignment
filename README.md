@@ -15,13 +15,17 @@
   bash bash_scripts/basic_tests.sh
   ```
 
+* Zbudowany obraz jest na athenie w folderze projektowym: `/net/pr2/projects/plgrid/plggaialignment/plgpikaminski/singularity_image.sif` (update: zła wersja biblioteki `trl`, trzeba podbić do `0.9.2`)
+
 Changelog:
 * Poluzowałem requirements.txt -- w oryginalnym repo były konflikty (mam nadzieję, że nic się potem nie wysypie)
 * Wyrzuciłem jeden niezdefiniowany test z `bash_scripts/basic_tests.sh`
 * Dodałem plik `Singularity.def` do budowania obrazu singularity. Virtual-env znajduje się w `/opt/venv`.
 Jest mac-friendly (`BLIS_ARCH=generic`) i buduje się dosyć szybko ([tutorial od Janka](https://stackoverflow.com/questions/76457823/apptainer-on-macos)).
-* Zbudowany obraz jest na athenie w folderze projektowym: `/net/pr2/projects/plgrid/plggaialignment/plgpikaminski/singularity_image.sif`
+* Usunięte referencje do nieistniejących plików i dodany device `mps`
 
+Problemy:
+* Mam problem z puszczeniem treningu nawet na małych modelach (`opt-125m`) na macu (brak pamięci)
 
 ## Setup
 
