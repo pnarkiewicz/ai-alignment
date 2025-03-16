@@ -1,6 +1,6 @@
 #  NYU Debate Modeling Project
 
-# Setup notes -- Piotrek:
+# Setup notes - Piotrek:
 * Należy stworzyć plik `.env` w bazowym folderze:
   ```
   SRC_ROOT=/ścieżka/do/repo/
@@ -15,15 +15,17 @@
   bash bash_scripts/basic_tests.sh
   ```
 
-Zmiany:
+Changelog:
 * Poluzowałem requirements.txt -- w oryginalnym repo były konflikty (mam nadzieję, że nic się potem nie wysypie)
 * Wyrzuciłem jeden niezdefiniowany test w `basic_tests.sh`
+* Dodałem plik `Singularity.def` do budowania obrazu singularity. Virtual-env znajduje się w `/opt/venv`.
+Jest mac-friendly (`BLIS_ARCH=generic`) i buduje się dosyć szybko ([tutorial od Janka](https://stackoverflow.com/questions/76457823/apptainer-on-macos)).
+* Zbudowany obraz jest na athenie w folderze projektowym: `/net/pr2/projects/plgrid/plggaialignment/plgpikaminski/singularity_image.sif`
 
-
-Note: Given the current state of this project, this README will just give an overview of the code structure. It is not an introduction to the overall effort.
 
 ## Setup
 
+Note: Given the current state of this project, this README will just give an overview of the code structure. It is not an introduction to the overall effort.
 ### Basic Setup
 1. Pull down this package using `git clone`
 2. Install the dependencies using `pip install -r requirements.txt`
