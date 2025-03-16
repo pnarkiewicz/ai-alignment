@@ -28,6 +28,9 @@ Problemy:
 * Mam problem z puszczeniem treningu nawet na małych modelach (`opt-125m`) na macu (brak pamięci)
 * Sporo bug'ów przy odpalaniu `scripts/run_ppo.py` -- kod częściowo wygląda na nieaktualny
 
+TODO:
+* `Judge` podczas treningu jest hardcoded na call'e do `OpenAI API`. Trzebea to sparametryzować
+
 ## Setup
 
 Note: Given the current state of this project, this README will just give an overview of the code structure. It is not an introduction to the overall effort.
