@@ -15,7 +15,7 @@
   bash bash_scripts/basic_tests.sh
   ```
 
-* Zbudowany obraz jest na athenie w folderze projektowym: `/net/pr2/projects/plgrid/plggaialignment/plgpikaminski/singularity_image.sif` (update: zła wersja biblioteki `trl`, trzeba podbić do `0.9.2`)
+* Zbudowany obraz jest na athenie w folderze projektowym: `/net/pr2/projects/plgrid/plggaialignment/plgpikaminski/singularity_image.sif` (update: zła wersja biblioteki `trl`, trzeba zbić do `0.9.2`)
 
 Changelog:
 * Poluzowałem requirements.txt -- w oryginalnym repo były konflikty (mam nadzieję, że nic się potem nie wysypie)
