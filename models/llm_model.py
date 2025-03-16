@@ -190,6 +190,14 @@ class LLModel(Model):
     ) -> tuple[AutoTokenizer, AutoModelForCausalLM]:
         local_rank = int(os.environ.get("LOCAL_RANK", "0"))
         device_map = {"": local_rank}
+
+        device = get_device()
+        if not torch.cuda.is_available():
+            quantize = False
+            print("CUDA not available, disabling quantization")
+            if torch.backends.mps.is_available():
+                device_map = {"": "mps"} # Prevents trl from failing on MPS
+
         model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=peft_base_model or file_path,
             device_map=device_map,
@@ -199,7 +207,7 @@ class LLModel(Model):
             token=os.getenv("META_ACCESS_TOKEN") if requires_token else None,
             quantization_config=LLModel.get_bnb_config() if quantize else None,
             torch_dtype=None if quantize else torch.bfloat16,
-        ).to(get_device())
+        ).to(device)
 
         if peft_base_model:
             model = PeftModel.from_pretrained(model=model, model_id=file_path, adapter_name="default", is_trainable=False)

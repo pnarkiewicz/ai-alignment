@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from data import DataRow, RawDataset, SplitType
 from debate import Debater, DebateRound, Judge, QuestionMetadata
-from models import ArbitraryAttributeModel, Llama3Model, OpenAIModel, OfflineModel, Model, RandomModel, SpeechStructure
+from models import ArbitraryAttributeModel, Llama3Model, OpenAIModel, OfflineModel, Model, RandomModel, SpeechStructure, StubLLModel
 from prompts import Prompt, PromptConfig, PromptLoadingConfig, PromptParser
 from train.impl import LlamaModelWithGradientCheckpointing, VerbosePPOTrainer
 from train.row_converter import RowConverter
@@ -275,7 +275,7 @@ class PPOTrainerWrapper:
         internal_model.model = self.ppo_trainer.model
         internal_model.tokenizer = self.ppo_trainer.tokenizer
         internal_model.generation_config = internal_model.create_default_generation_config(
-            is_debater=True, do_sample=True, add_penalties=False
+            is_debater=True, generation_params=GenerationConfig(do_sample=True, use_generation_penalties=False)
         )
         internal_model.instantiated_model = True
         internal_model.is_debater = True
@@ -289,7 +289,7 @@ class PPOTrainerWrapper:
         reference_model.model = self.ref_model
         reference_model.tokenizer = self.ppo_trainer.tokenizer
         reference_model.generation_config = reference_model.create_default_generation_config(
-            is_debater=True, do_sample=True, add_penalties=False
+            is_debater=True, generation_params=GenerationConfig(do_sample=True, use_generation_penalties=False)
         )
         reference_model.instantiated_model = True
         reference_model.is_debater = True

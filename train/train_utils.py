@@ -233,15 +233,23 @@ class TrainUtils:
                 )
 
             if requires_value_head:
-                local_rank = int(os.environ.get("LOCAL_RANK", "0"))
-                device_map = {"": local_rank}
+                use_flash_attention = True
+                try:
+                    import flash_attn
+                except ImportError as e:
+                    use_flash_attention = False
+
+                quantization_config = None
+                if llm_cls.QUANTIZE and torch.cuda.is_available():
+                    quantization_config = LLModel.get_bnb_config()
+
                 model = AutoModelForCausalLMWithValueHead.from_pretrained(
                     pretrained_model_name_or_path=model,
                     trust_remote_code=True,
-                    use_flash_attention_2=True,
+                    use_flash_attention_2=use_flash_attention,
                     use_cache=False,
                     peft_config=peft_config,
-                    quantization_config=LLModel.get_bnb_config() if llm_cls.QUANTIZE else None,
+                    quantization_config=quantization_config,
                     torch_dtype=None if llm_cls.QUANTIZE else torch.bfloat16,
                 )
 
@@ -255,10 +263,9 @@ class TrainUtils:
     @classmethod
     def get_tokenizer(cls, config: TrainingConfig, is_local: bool = False) -> AutoTokenizer:
         """Gets the tokenizer associated with the specified model"""
-        if not is_local:
-            return LLModel.instantiate_tokenizer(file_path=config.model_name, requires_token=config.requires_token)
-        else:
+        if is_local or config.model_name == "stub_model":
             return TokenizerStub()
+        return LLModel.instantiate_tokenizer(file_path=config.model_name, requires_token=config.requires_token)
 
     @classmethod
     def get_llm_class(cls, config: TrainingConfig):
