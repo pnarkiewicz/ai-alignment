@@ -16,14 +16,13 @@ import torch
 
 from dataclasses import dataclass
 from enum import auto, Enum
-from typing import Any, Optional, Union, Type
+from typing import Any, Optional, Type
 import base64
 import copy
 import io
 import math
 import os
 import random
-import re
 
 
 class LLMInput(BaseModel):

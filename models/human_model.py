@@ -5,7 +5,7 @@ from data import SpeakerType, SpeechData
 from utils import logger_utils
 import utils.constants as constants
 
-from typing import Union, Optional
+from typing import Optional
 
 
 class HumanModel(Model):

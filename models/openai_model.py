@@ -8,8 +8,7 @@ import backoff
 import openai
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import Union, Optional
-import logging
+from typing import Optional
 import os
 import math
 import random

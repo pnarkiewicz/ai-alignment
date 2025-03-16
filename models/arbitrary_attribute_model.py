@@ -4,7 +4,7 @@ from models.model import Model, ModelInput, ModelResponse, SpeechStructure
 from prompts import RoleType
 import utils.constants as constants
 
-from typing import Union, Optional
+from typing import Optional
 import random
 import re
 

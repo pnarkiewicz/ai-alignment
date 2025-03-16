@@ -7,12 +7,10 @@ einops
 fuzzysearch
 matplotlib
 matplotlib-inline
-ninja==1.11.1
 numpy==1.26.4
 openai>=1.51.0
 pandas==1.5.3
 peft==0.5.0
-protobuf==4.24.3
 pydantic>=2.0.0
 python-dotenv
 pyyaml

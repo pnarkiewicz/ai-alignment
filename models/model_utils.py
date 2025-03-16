@@ -8,9 +8,6 @@ from models.random_model import RandomModel
 from models.repetitive_model import RepetitiveModel
 from models.served_model import ServedModel
 
-from pydantic import BaseModel
-
-from enum import Enum
 from typing import Optional
 
 

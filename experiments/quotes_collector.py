@@ -6,8 +6,6 @@ import utils.constants as constants
 from pydantic import BaseModel
 
 import copy
-import re
-import sys
 
 
 class QuoteStats(BaseModel):

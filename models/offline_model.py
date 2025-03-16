@@ -6,13 +6,10 @@ from utils import InputType, input_utils
 import utils.constants as constants
 
 from abc import ABC, abstractmethod
-from enum import auto, Enum
+from enum import Enum
 from typing import Optional
-import copy
 import json
-import os
 import random
-import sys
 
 
 class OfflineDataFormatParser(ABC):

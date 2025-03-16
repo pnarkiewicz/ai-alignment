@@ -3,7 +3,6 @@ import utils.constants as constants
 
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
-import numpy as np
 import spacy
 import torch.nn as nn
 import torch
