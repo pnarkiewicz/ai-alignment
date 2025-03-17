@@ -1,6 +1,6 @@
 #  NYU Debate Modeling Project
 
-# Setup notes - Piotrek:
+## Setup notes - Piotrek:
 * Należy stworzyć plik `.env` w bazowym folderze:
   ```
   SRC_ROOT=/ścieżka/do/repo/
