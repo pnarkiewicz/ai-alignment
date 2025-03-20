@@ -42,7 +42,7 @@ Test:
 Test - Iterative:
     model_name: /local/model/path
     target: debater
-    llm_type: llama3
+    llm_type: llama
     opening_speeches_only: True
     max_length: 1024
     training_hyperparameters:
