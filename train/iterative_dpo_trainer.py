@@ -1,31 +1,25 @@
-from data import DataRow, JudgePreferencesLoader, JudgePreferencesDataset, RawDataset, RewardType, SplitType
+from data import JudgePreferencesLoader, JudgePreferencesDataset, RawDataset, RewardType, SplitType
 from debate import BestOfNDebater, Debater, DebateRound, Judge, QuestionMetadata
-from models import BestOfNConfig, GenerationParams, OpenAIModel, RandomModel
+from models import BestOfNConfig, GenerationParams, RandomModel
 from prompts import PromptConfig, PromptParser
 from train.impl import SmoothedDPOTrainer
-from train.train_utils import TrainUtils, TrainingConfig, TrainingTarget
+from train.train_utils import TrainUtils, TrainingConfig
 from utils import LoggingCallback, logger_utils
 import utils.constants as constants
 
 from datasets import Dataset
-from pydantic import BaseModel
-from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
-from trl import DPOTrainer
+from transformers import TrainingArguments
 import pandas as pd
 import torch
 
-from typing import Optional
-import copy
-import json
 
 try:
     from utils.flash_attn_utils import (
-        replace_attn_with_flash_attn,
         upcast_layer_for_flash_attention,
     )
 
     FLASH_ATTENTION_AVAILABLE = True
-except ImportError as e:
+except ImportError:
     print("Running without flash attention")
     FLASH_ATTENTION_AVAILABLE = False
 
@@ -34,34 +28,25 @@ class IterativeDirectPreferenceTrainer:
     """Class for iteratively training a model using Direct Preference Optimization"""
 
     DEFAULT_DEBATER_ALIAS = "default-debater"
-    DEFAULT_JUDGE_ALIAS = "default-judge"
 
     def __init__(self, config: TrainingConfig, smooth: bool = True, is_local: bool = False):
         self.logger = logger_utils.get_default_logger(__name__)
         self.is_local = is_local
         self.tokenizer = TrainUtils.get_tokenizer(config=config, is_local=is_local)
-        self.model = TrainUtils.load_model(
+        self.model = TrainUtils.load_training_model(
             config=config,
             is_local=is_local,
             requires_value_head=False,
             load_as_peft_model=bool(config.training_hyperparameters.supplemental.get("force_sft_as_reference", False)),
         )
 
+        self.judge_model = TrainUtils.load_judge_model(config, is_local=is_local)
+        self.random_judge_model = RandomModel(alias="default-random-judge", is_debater=False)
+
         if FLASH_ATTENTION_AVAILABLE:
             self.model = upcast_layer_for_flash_attention(self.model, torch.bfloat16)
 
         self.peft_config = TrainUtils.get_peft_config(config=config)
-
-        if is_local:
-            self.judge_model = RandomModel(alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS, is_debater=False)
-        else:
-            self.judge_model = OpenAIModel(
-                alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS,
-                is_debater=False,
-                endpoint="ft:gpt-4-0613:nyu-arg::90NW3Tbx",
-            )
-
-        self.random_judge_model = RandomModel(alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS, is_debater=False)
 
         reward_type = RewardType.LOG_PROB
         if config.training_hyperparameters.supplemental and "reward_type" in config.training_hyperparameters.supplemental:
@@ -197,7 +182,6 @@ class IterativeDirectPreferenceTrainer:
         background_text = example.background_text
         title = example.story_title
         correct_index = example.correct_index
-        speeches = example.speeches
 
         debate_identifier = f"{title}_{topic}"
 
@@ -332,6 +316,6 @@ class IterativeDirectPreferenceTrainer:
             metadata=[question_metadata],
         )
 
-        summary = debate_round()[0]
+        debate_round()[0]
         transcript_json = random_judge.transcripts[0].json_value()
         return JudgePreferencesLoader.process_row(transcript_json)
