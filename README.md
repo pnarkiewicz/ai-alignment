@@ -1,9 +1,39 @@
 #  NYU Debate Modeling Project
 
-Note: Given the current state of this project, this README will just give an overview of the code structure. It is not an introduction to the overall effort.
+## Setup notes - Piotrek:
+* Należy stworzyć plik `.env` w bazowym folderze:
+  ```
+  SRC_ROOT=/ścieżka/do/repo/
+  INPUT_ROOT=/ścieżka/do/repo/data/datasets/
+  ```
+  (ścieżki muszą kończyć się znakiem '/')
+* Podstawowy test:
+  ```
+  python3.11 -m venv venv
+  soruce venv/bin/activate
+  pip install -r requirements.txt
+  bash bash_scripts/basic_tests.sh
+  ```
+
+* Zbudowany obraz jest na athenie w folderze projektowym: `/net/pr2/projects/plgrid/plggaialignment/plgpikaminski/singularity_image.sif` (update: zła wersja biblioteki `trl`, trzeba zbić do `0.9.2`)
+
+Changelog:
+* Poluzowałem requirements.txt -- w oryginalnym repo były konflikty (mam nadzieję, że nic się potem nie wysypie)
+* Wyrzuciłem jeden niezdefiniowany test z `bash_scripts/basic_tests.sh`
+* Dodałem plik `Singularity.def` do budowania obrazu singularity. Virtual-env znajduje się w `/opt/venv`.
+Jest mac-friendly (`BLIS_ARCH=generic`) i buduje się dosyć szybko ([tutorial od Janka](https://stackoverflow.com/questions/76457823/apptainer-on-macos)).
+* Usunięte referencje do nieistniejących plików i dodany device `mps`
+
+Problemy:
+* Mam problem z puszczeniem treningu nawet na małych modelach (`opt-125m`) na macu (brak pamięci)
+* Sporo bug'ów przy odpalaniu `scripts/run_ppo.py` -- kod częściowo wygląda na nieaktualny
+
+TODO:
+* `Judge` podczas treningu jest hardcoded na call'e do `OpenAI API`. Trzebea to sparametryzować
 
 ## Setup
 
+Note: Given the current state of this project, this README will just give an overview of the code structure. It is not an introduction to the overall effort.
 ### Basic Setup
 1. Pull down this package using `git clone`
 2. Install the dependencies using `pip install -r requirements.txt`

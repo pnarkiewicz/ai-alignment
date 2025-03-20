@@ -2,7 +2,6 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 
 from enum import Enum
-from typing import Optional
 import argparse
 import logging
 import os

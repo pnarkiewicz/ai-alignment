@@ -3,9 +3,8 @@ from __future__ import annotations
 from models.model import Model, ModelInput, ModelResponse, SpeechStructure
 import utils.constants as constants
 
-from typing import Union, Optional
+from typing import Optional
 import random
-import sys
 
 
 class RepetitiveModel(Model):

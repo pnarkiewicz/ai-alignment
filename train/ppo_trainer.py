@@ -2,27 +2,22 @@ from __future__ import annotations
 
 from data import DataRow, RawDataset, SplitType
 from debate import Debater, DebateRound, Judge, QuestionMetadata
-from models import ArbitraryAttributeModel, Llama3Model, OpenAIModel, OfflineModel, Model, RandomModel, SpeechStructure
+from models import ArbitraryAttributeModel, Llama3Model, OpenAIModel, OfflineModel, Model, RandomModel, SpeechStructure, StubLLModel
 from prompts import Prompt, PromptConfig, PromptLoadingConfig, PromptParser
 from train.impl import LlamaModelWithGradientCheckpointing, VerbosePPOTrainer
 from train.row_converter import RowConverter
 from train.train_utils import TrainUtils, TrainingConfig, TrainingTarget
-from utils import LoggingCallback, logger_utils, string_utils, timer
+from utils import logger_utils, timer, get_device
 import utils.constants as constants
 
 from datasets import Dataset
 from peft import LoraConfig, prepare_model_for_kbit_training, get_peft_model
 from transformers import AutoModelForCausalLM, GenerationConfig, LlamaModel
 from trl import PPOConfig, PPOTrainer
-from tqdm import tqdm
-import pandas as pd
-import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
 from typing import Optional
-import math
-import sys
 import traceback
 
 try:
@@ -184,15 +179,19 @@ class PPOTrainerWrapper:
         with torch.no_grad():
             query_texts, response_texts, score_texts = self.get_batch_samples(start_idx=start_idx, ppo_stats=ppo_stats)
 
-        queries = [torch.tensor(qt).to("cuda") for qt in query_texts]
-        responses = [torch.tensor(rt).to("cuda") for rt in response_texts]
-        scores = [x.to("cuda") for x in torch.FloatTensor(score_texts)]
+        device = get_device()
+        queries = [torch.tensor(qt).to(device) for qt in query_texts]
+        responses = [torch.tensor(rt).to(device) for rt in response_texts]
+        scores = [x.to(device) for x in torch.FloatTensor(score_texts)]
 
         window = self.config.training_hyperparameters.per_device_train_batch_size // 2
         batch_idx = start_idx // self.config.training_hyperparameters.per_device_train_batch_size
         overall = ppo_stats.get_scores(window=window)
 
-        with torch.autocast("cuda", dtype=torch.bfloat16):
+        if device.type != "cuda":
+            print("Not using cuda, might fail")
+
+        with torch.autocast(device, dtype=torch.bfloat16):
             stats = self.ppo_trainer.step(
                 queries=queries,
                 responses=responses,
@@ -276,7 +275,7 @@ class PPOTrainerWrapper:
         internal_model.model = self.ppo_trainer.model
         internal_model.tokenizer = self.ppo_trainer.tokenizer
         internal_model.generation_config = internal_model.create_default_generation_config(
-            is_debater=True, do_sample=True, add_penalties=False
+            is_debater=True, generation_params=GenerationConfig(do_sample=True, use_generation_penalties=False)
         )
         internal_model.instantiated_model = True
         internal_model.is_debater = True
@@ -290,7 +289,7 @@ class PPOTrainerWrapper:
         reference_model.model = self.ref_model
         reference_model.tokenizer = self.ppo_trainer.tokenizer
         reference_model.generation_config = reference_model.create_default_generation_config(
-            is_debater=True, do_sample=True, add_penalties=False
+            is_debater=True, generation_params=GenerationConfig(do_sample=True, use_generation_penalties=False)
         )
         reference_model.instantiated_model = True
         reference_model.is_debater = True

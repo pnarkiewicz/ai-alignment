@@ -4,9 +4,8 @@ from models.model import Model, ModelInput, ModelResponse, SpeechStructure
 import utils.constants as constants
 from utils import logger_utils
 
-from typing import Union, Optional
+from typing import Optional
 import random
-import re
 
 
 class RandomModel(Model):

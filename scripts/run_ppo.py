@@ -2,7 +2,6 @@ from script_utils import ScriptUtils, TrainType
 
 ScriptUtils.setup_script()
 
-from data import RawDataset
 from train import PPOTrainerWrapper, TrainUtils
 from utils import save_utils
 

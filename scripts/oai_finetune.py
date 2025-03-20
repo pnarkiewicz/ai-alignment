@@ -1,4 +1,4 @@
-from script_utils import ScriptUtils, TrainType
+from script_utils import ScriptUtils
 
 ScriptUtils.setup_script()
 

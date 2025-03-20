@@ -52,13 +52,14 @@ class IterativeDirectPreferenceTrainer:
 
         self.peft_config = TrainUtils.get_peft_config(config=config)
 
-        self.judge_model = OpenAIModel(
-            alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS,
-            is_debater=False,
-            endpoint="ft:gpt-4-0613:nyu-arg::90NW3Tbx",
-        )  # make configurable
         if is_local:
             self.judge_model = RandomModel(alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS, is_debater=False)
+        else:
+            self.judge_model = OpenAIModel(
+                alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS,
+                is_debater=False,
+                endpoint="ft:gpt-4-0613:nyu-arg::90NW3Tbx",
+            )
 
         self.random_judge_model = RandomModel(alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS, is_debater=False)
 

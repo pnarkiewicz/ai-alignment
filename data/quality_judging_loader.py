@@ -1,6 +1,6 @@
 from data.dataset import DataRow, DatasetType, JudgingProbeDataRow, RawDataLoader, RawDataset, SplitType
 from data.quality_loader import QualityLoader
-from utils import InputType, input_utils
+from utils import InputType, input_utils, get_device
 import utils.constants as constants
 
 import torch
@@ -83,7 +83,7 @@ class QualityJudgingLoader(RawDataLoader):
                     return row
             raise Exception(f"A row with title {story_title} and question {question} could not be found in the dataset")
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = get_device()
         quality_filepath = (supplemental_file_paths or {}).get("quality_file_path", QualityLoader.DEFAULT_TRAIN_PATH)
         quality_dataset = QualityLoader.load(full_dataset_filepath=quality_filepath)
 
