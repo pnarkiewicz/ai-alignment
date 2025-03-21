@@ -44,12 +44,12 @@ Test - Iterative:
     target: debater
     llm_type: llama
     opening_speeches_only: True
-    max_length: 1024
+    max_length: 4096
     training_hyperparameters:
-        steps: 2
-        num_train_epochs: 2
+        steps: 16
+        num_train_epochs: 3
         per_device_train_batch_size: 1
-        gradient_accumulation_steps: 8
+        gradient_accumulation_steps: 4
         optim: adamw_torch # (no bits and bytes locally)
         learning_rate: 2e-6
         max_grad_norm: 0.3
@@ -57,7 +57,7 @@ Test - Iterative:
         lr_scheduler_type: constant
         peft_type: lora
         supplemental:
-            epoch_size: 2
+            epoch_size: 16
     logging_and_saving_config:
         logging_steps: 1
         output_dir: /local/output/dir

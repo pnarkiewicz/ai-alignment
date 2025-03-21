@@ -18,6 +18,8 @@ from typing import Optional
 import copy
 import json
 
+from utils.constants import DEBUG
+
 try:
     from utils.flash_attn_utils import (
         replace_attn_with_flash_attn,
@@ -133,8 +135,8 @@ class IterativeDirectPreferenceTrainer:
             "model": self.model,
             "ref_model": None,
             "loss_type": loss_type,
-            "max_length": 16384,
-            "max_prompt_length": 16384,
+            "max_length": 2048 if DEBUG else 16384,
+            "max_prompt_length": 2048 if DEBUG else 16384,
             "beta": self.config.training_hyperparameters.kl_penalty,
             "alpha": self.config.training_hyperparameters.supplemental.get("alpha", 0.005),
             "args": training_args,
@@ -326,5 +328,6 @@ class IterativeDirectPreferenceTrainer:
         )
 
         summary = debate_round()[0]
+        print(summary)
         transcript_json = random_judge.transcripts[0].json_value()
         return JudgePreferencesLoader.process_row(transcript_json)
