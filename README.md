@@ -10,7 +10,7 @@
 * Podstawowy test:
   ```
   python3.11 -m venv venv
-  soruce venv/bin/activate
+  source venv/bin/activate
   pip install -r requirements.txt
   bash bash_scripts/basic_tests.sh
   ```
