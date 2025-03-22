@@ -29,7 +29,7 @@ Problemy:
 * Sporo bug'ów przy odpalaniu `scripts/run_ppo.py` -- kod częściowo wygląda na nieaktualny
 
 TODO:
-* `Judge` podczas treningu jest hardcoded na call'e do `OpenAI API`. Trzebea to sparametryzować
+* `Judge` podczas treningu jest hardcoded na call'e do `OpenAI API`. Trzeba to sparametryzować
 
 ## Setup
 
