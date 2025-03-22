@@ -31,6 +31,9 @@ Problemy:
 TODO:
 * `Judge` podczas treningu jest hardcoded na call'e do `OpenAI API`. Trzebea to sparametryzować
 
+## Train - Przewodnik
+* Zmienna `local` w configu odpowiada za testy. Nie jest to najlepsza nazwa i powinna być zmieniona na test, ale nie chciałem zmieniać od razu całego kodu.
+
 ## Setup
 
 Note: Given the current state of this project, this README will just give an overview of the code structure. It is not an introduction to the overall effort.
