@@ -181,6 +181,14 @@ class BestOfNDebater(Debater):
 
                 judge_inputs.append(judge_transcript.to_model_input())
 
+
+        if len(judge_transcript.speeches) == 1:
+            self.logger.warning(f"[pikaminski] This is probably a bug -- number of speeches is 1 and should be 2."
+                                " If it's your first time here, I'll open a debugger for you:")
+            if not hasattr(self, "open_debugger"):
+                self.open_debugger = False
+                breakpoint()
+
         judge_model_response = self.judge.model.predict(
             inputs=judge_inputs, max_new_tokens=15, speech_structure=SpeechStructure.DECISION
         )
