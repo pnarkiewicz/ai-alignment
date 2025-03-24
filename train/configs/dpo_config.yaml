@@ -1,5 +1,5 @@
 Local Train:
-    model_name: /path/to/v0-llama2-100k # donwload from https://huggingface.co/delphi-suite/v0-llama2-100k 
+    model_name: /path/to/v0-llama2-100k # download from https://huggingface.co/delphi-suite/v0-llama2-100k 
     target: debater
     llm_type: llama
     max_length: 4096
