@@ -40,6 +40,16 @@
                 "--test"
             ],
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Local DPO training",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/run_iterative_dpo.py",
+            "args": [
+                "--config=Local Train",
+            ],
+            "console": "integratedTerminal"
         }
     ]
 }
