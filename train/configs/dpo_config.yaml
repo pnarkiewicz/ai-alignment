@@ -23,7 +23,7 @@ Local Train:
             loss_type: bon
             multiplier: 7
     logging_and_saving_config:
-        logging_steps: 1
+        logging_steps: 5
         output_dir: /path/to/save/model
     dataset:
         dataset_type: quality
