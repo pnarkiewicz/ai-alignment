@@ -3,20 +3,14 @@ from debate import BestOfNDebater, Debater, DebateRound, Judge, QuestionMetadata
 from models import BestOfNConfig, GenerationParams, OpenAIModel, RandomModel, ArbitraryAttributeModel
 from prompts import PromptConfig, PromptParser
 from train.impl import SmoothedDPOTrainer
-from train.train_utils import TrainUtils, TrainingConfig, TrainingTarget
+from train.train_utils import TrainUtils, TrainingConfig
 from utils import LoggingCallback, logger_utils
 import utils.constants as constants
 
 from datasets import Dataset
-from pydantic import BaseModel
-from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
-from trl import DPOTrainer
+from transformers import TrainingArguments
 import pandas as pd
 import torch
-
-from typing import Optional
-import copy
-import json
 
 from utils.constants import DEBUG
 
@@ -55,7 +49,11 @@ class IterativeDirectPreferenceTrainer:
         self.peft_config = TrainUtils.get_peft_config(config=config)
 
         # TODO: parameterize this
-        self.judge_model = ArbitraryAttributeModel(alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS, is_debater=False, feature="a")
+        # 'l' is a nice feature to count: ~4% letter frequency in English (baseline) https://en.wikipedia.org/wiki/Letter_frequency
+        # many popular tokens have both 1 and 2 'l's, so the model often first finds 'l' and then it uses 'll'
+        self.judge_model = ArbitraryAttributeModel(alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS, is_debater=False, feature="l")
+
+        # self.judge_model = OpenAIModel(alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS, is_debater=False)
         self.random_judge_model = RandomModel(alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS, is_debater=False)
 
         reward_type = RewardType.LOG_PROB
@@ -135,7 +133,7 @@ class IterativeDirectPreferenceTrainer:
             "model": self.model,
             "ref_model": None,
             "loss_type": loss_type,
-            "max_length": 2048 if DEBUG else 16384,
+            "max_length": 2048 if DEBUG else 16384,         # [pikaminski] lower than 2048 is problematic
             "max_prompt_length": 2048 if DEBUG else 16384,
             "beta": self.config.training_hyperparameters.kl_penalty,
             "alpha": self.config.training_hyperparameters.supplemental.get("alpha", 0.005),
@@ -328,6 +326,10 @@ class IterativeDirectPreferenceTrainer:
         )
 
         summary = debate_round()[0]
-        print(summary)
+        if DEBUG:
+            print("Speeches:")
+            print("A ", summary.transcript.speeches[0].content)
+            print("B ", summary.transcript.speeches[1].content)
+
         transcript_json = random_judge.transcripts[0].json_value()
         return JudgePreferencesLoader.process_row(transcript_json)

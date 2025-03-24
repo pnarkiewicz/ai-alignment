@@ -220,7 +220,7 @@ class QualityLoader(RawDataLoader):
                     for line in f.readlines():
                         loaded = json.loads(line)
                         if DEBUG:
-                            loaded["article"] = loaded["article"][:512]
+                            loaded["article"] = loaded["article"][:32]
                         entries.append(loaded)
             return entries
 

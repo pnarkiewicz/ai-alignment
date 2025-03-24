@@ -56,6 +56,7 @@ from trl.trainer.utils import (
 )
 from packaging import version
 import transformers
+from utils.constants import DEBUG
 
 PEFT_AVAILABLE = True
 try:
@@ -924,6 +925,10 @@ class SmoothedDPOTrainer(Trainer):
             sft_loss = -policy_chosen_logps.to(self.accelerator.device)
             losses = (self.alpha * sft_loss) + ((1 - self.alpha) * dpo_loss)
 
+            if torch.isnan(losses).any() or torch.isnan(dpo_loss).any() or torch.isnan(sft_loss).any():
+                self.logger.error(f"NaN detected - Losses: {losses.item()}, DPO Loss: {dpo_loss.item()}, SFT Loss: {sft_loss.item()}")
+                breakpoint()
+
             self.logger.info(f"Overall Loss: {losses.item()}\tDPO Loss: {dpo_loss.item()}\tSFT Loss: {sft_loss.item()}")
         elif self.loss_type == "bon-ipo":
             dpo_loss = (logits - (pref / (2 * self.beta))) ** 2
@@ -1025,6 +1030,14 @@ class SmoothedDPOTrainer(Trainer):
             label_pad_token_id=self.label_pad_token_id,
         )
 
+        if (size_completion == 0).any():
+            self.logger.error("Some size completion is 0")
+            breakpoint()
+
+        if torch.isnan(all_logps).any():
+            self.logger.error("NaN detected in all_logps")
+            breakpoint()
+
         if self.loss_type in ["ipo", "bon", "bon-ipo"]:
             all_logps = all_logps / size_completion
 
@@ -1051,6 +1064,10 @@ class SmoothedDPOTrainer(Trainer):
             policy_chosen_logits,
             policy_rejected_logits,
         ) = self.concatenated_forward(model, batch)
+        
+        if torch.isnan(policy_chosen_logps).any() or torch.isnan(policy_rejected_logps).any():
+            self.logger.error("NaN detected in logps")
+            breakpoint()
 
         # if reference_chosen_logps and reference_rejected_logps in batch use them, otherwise use the reference model
         if "reference_chosen_logps" in batch and "reference_rejected_logps" in batch:
@@ -1074,6 +1091,11 @@ class SmoothedDPOTrainer(Trainer):
                         _,
                     ) = self.concatenated_forward(self.ref_model, batch)
 
+
+        if torch.isnan(policy_chosen_logps).any() or torch.isnan(policy_rejected_logps).any() or torch.isnan(reference_chosen_logps).any() or torch.isnan(reference_rejected_logps).any():
+            self.logger.error("NaN detected in logps")
+            breakpoint()
+
         losses, chosen_rewards, rejected_rewards = self.dpo_loss(
             policy_chosen_logps,
             policy_rejected_logps,
@@ -1081,6 +1103,7 @@ class SmoothedDPOTrainer(Trainer):
             reference_rejected_logps,
             batch.get("preference"),
         )
+
         reward_accuracies = (chosen_rewards > rejected_rewards).float()
 
         prefix = "eval_" if train_eval == "eval" else ""
@@ -1108,10 +1131,13 @@ class SmoothedDPOTrainer(Trainer):
                 "DPODataCollatorWithPadding - you might see unexpected behavior. Alternatively, you can implement your own prediction_step method if you are using a custom data collator"
             )
 
-        compute_loss_context_manager = torch.cuda.amp.autocast if self._peft_has_been_casted_to_bf16 else nullcontext
-
-        with compute_loss_context_manager():
+        if DEBUG:
             loss, metrics = self.get_batch_loss_metrics(model, inputs, train_eval="train")
+        else:
+            compute_loss_context_manager = torch.cuda.amp.autocast if self._peft_has_been_casted_to_bf16 else nullcontext
+
+            with compute_loss_context_manager():
+                loss, metrics = self.get_batch_loss_metrics(model, inputs, train_eval="train")
 
         # Make sure to move the loss to the device the original accumulating loss is at back in the `Trainer` class:
         loss = loss.to(self.args.device)

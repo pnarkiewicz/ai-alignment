@@ -1,3 +1,33 @@
+Local Train:
+    model_name: /path/to/v0-llama2-100k # donwload from https://huggingface.co/delphi-suite/v0-llama2-100k 
+    target: debater
+    llm_type: llama
+    max_length: 4096
+    training_hyperparameters:
+        steps: 20
+        num_train_epochs: 1
+        per_device_train_batch_size: 1
+        gradient_accumulation_steps: 1
+        optim: adamw_torch # (no bits and bytes locally)
+        learning_rate: 2e-4
+        max_grad_norm: 0.1
+        warmup_ratio: 0.03
+        lr_scheduler_type: constant
+        peft_type: lora
+        target_module: all
+        lora_rank: 512
+        supplemental:
+            epoch_size: 4   # num examples used per step
+            save_steps: 4
+            reward_type: prob
+            loss_type: bon
+            multiplier: 7
+    logging_and_saving_config:
+        logging_steps: 1
+        output_dir: /path/to/save/model
+    dataset:
+        dataset_type: quality
+        split_type: train
 Test - Consultancy:
     model_name: stub_model
     target: debater
@@ -40,30 +70,24 @@ Test:
         dataset_type: judge_preferences
         full_dataset_file_path: 2024-03-11_00:19:01.230232
 Test - Iterative:
-    model_name: /local/model/path
+    model_name: stub_model
     target: debater
-    llm_type: llama
-    opening_speeches_only: True
-    max_length: 4096
+    llm_type: stub_llm
     training_hyperparameters:
-        steps: 16
-        num_train_epochs: 3
+        num_train_epochs: 2
         per_device_train_batch_size: 1
-        gradient_accumulation_steps: 4
-        optim: adamw_torch # (no bits and bytes locally)
+        gradient_accumulation_steps: 8
+        optim: paged_adamw_32bit
         learning_rate: 2e-6
         max_grad_norm: 0.3
         warmup_ratio: 0.03
         lr_scheduler_type: constant
         peft_type: lora
-        supplemental:
-            epoch_size: 16
     logging_and_saving_config:
         logging_steps: 1
-        output_dir: /local/output/dir
+        output_dir: /fake/file/path
     dataset:
         dataset_type: quality
-        split_type: train
 Iterative - Experiment:
     model_name: /vast/spa9663/models/trained_models/llama-3-mega-merged
     target: debater

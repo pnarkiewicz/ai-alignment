@@ -125,7 +125,8 @@ class Transcript:
     def get_next_expected_speaker(self) -> Optional[str]:
         """Gets the name of the next agent that is expected to deliver a speech"""
         expected_speakers = [expected_speaker for _, _, _, expected_speaker in filter(lambda x: x[-1], self.speech_format)]
-        return expected_speakers[len(self.speeches)] if len(self.speeches) < len(expected_speakers) else None
+        next_speaker = expected_speakers[len(self.speeches)] if len(self.speeches) < len(expected_speakers) else None
+        return next_speaker
 
     def only_decision_remains(self) -> bool:
         """Returns true if there are no more speeches that are expected to be delivered besides the
