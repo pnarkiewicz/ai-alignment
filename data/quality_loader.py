@@ -15,7 +15,7 @@ import os
 import random
 import re
 import statistics
-
+from utils.constants import DEBUG
 
 class QualityDataset(RawDataset):
     def __init__(
@@ -218,7 +218,10 @@ class QualityLoader(RawDataLoader):
             if filepath:
                 with open(filepath) as f:
                     for line in f.readlines():
-                        entries.append(json.loads(line))
+                        loaded = json.loads(line)
+                        if DEBUG:
+                            loaded["article"] = loaded["article"][:32]
+                        entries.append(loaded)
             return entries
 
         train_filepath = train_filepath or QualityLoader.DEFAULT_TRAIN_PATH
