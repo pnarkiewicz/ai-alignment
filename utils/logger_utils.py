@@ -1,7 +1,7 @@
-from transformers import TrainerCallback
-
 import logging
 import os
+
+from transformers import TrainerCallback
 
 
 def get_log_level():

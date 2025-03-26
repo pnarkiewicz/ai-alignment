@@ -1,4 +1,6 @@
-import os, sys, json
+import json
+import os
+import sys
 
 src_root = "/Users/samarnesen/nyu/debate/nyu-debate-modeling/"
 os.environ["SRC_ROOT"] = src_root

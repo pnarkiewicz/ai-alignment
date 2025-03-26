@@ -1,22 +1,17 @@
 from __future__ import annotations
 
-from debate.speech_format import Speech, SpeechType, SpeechFormatEntry, SpeechFormat
+import copy
+import json
+from typing import Any, Optional
+
+from debate.speech_format import Speech, SpeechFormat, SpeechType
 from models import ModelInput, ModelResponse
 from prompts import Prompt, RoleType
 import utils.constants as constants
 
-from pydantic import BaseModel
-
-from enum import Enum
-from typing import Any, Callable, Optional, Union
-import copy
-import json
-
 
 class Transcript:
-    def __init__(
-        self, name: str, prompt: Prompt, speech_format: SpeechFormat, index: int = 0, alternate_prompts: bool = False
-    ):
+    def __init__(self, name: str, prompt: Prompt, speech_format: SpeechFormat, index: int = 0, alternate_prompts: bool = False):
         """
         An abstraction that tracks the commands and speeches delivered in the round. This can then
         be used to construct an input to a model.
@@ -39,9 +34,7 @@ class Transcript:
         """Removes all the given speeches"""
         self.speeches = []
 
-    def add_speech(
-        self, speaker: str, content: str, supplemental: Optional[ModelResponse | list[ModelResponse]] = None
-    ) -> None:
+    def add_speech(self, speaker: str, content: str, supplemental: Optional[ModelResponse | list[ModelResponse]] = None) -> None:
         """
         Adds an agent-generated speech to the transcript
 
@@ -66,9 +59,7 @@ class Transcript:
 
         def add_to_model_inputs(model_inputs: list[ModelInput], new_addition: ModelInput) -> None:
             if model_inputs and model_inputs[-1].role == new_addition.role:
-                model_inputs[-1] = ModelInput(
-                    role=new_addition.role, content=f"{model_inputs[-1].content}\n\n{new_addition.content}"
-                )
+                model_inputs[-1] = ModelInput(role=new_addition.role, content=f"{model_inputs[-1].content}\n\n{new_addition.content}")
             else:
                 model_inputs.append(new_addition)
 
@@ -76,9 +67,7 @@ class Transcript:
         index = 0
         for i, (speech_type, prompt_tag, last_only_prompt_tag, expected_speaker) in enumerate(self.speech_format):
             if speech_type == SpeechType.PRE_FILLED:
-                prompt_tag_to_use = (
-                    prompt_tag if (index < len(self.speeches) or not last_only_prompt_tag) else last_only_prompt_tag
-                )
+                prompt_tag_to_use = prompt_tag if (index < len(self.speeches) or not last_only_prompt_tag) else last_only_prompt_tag
 
                 content_idx = index % len(self.prompt.messages[prompt_tag_to_use].content) if self.alternate_prompts else 0
                 add_to_model_inputs(
@@ -91,11 +80,7 @@ class Transcript:
             else:
                 if index >= len(self.speeches):
                     break
-                role = (
-                    RoleType.USER
-                    if self.speeches[index].speaker != self.name or index < len(self.speeches)
-                    else RoleType.ASSISTANT
-                )
+                role = RoleType.USER if self.speeches[index].speaker != self.name or index < len(self.speeches) else RoleType.ASSISTANT
 
                 add_to_model_inputs(model_inputs, ModelInput(role=role, content=str(self.speeches[index].content)))
                 index += 1
@@ -132,9 +117,7 @@ class Transcript:
         """Returns true if there are no more speeches that are expected to be delivered besides the
         judge's final verdict"""
         expected_speakers = [expected_speaker for _, _, _, expected_speaker in filter(lambda x: x[-1], self.speech_format)]
-        remaining_speakers = (
-            set(expected_speakers[len(self.speeches) :]) if len(self.speeches) < len(expected_speakers) else set()
-        )
+        remaining_speakers = set(expected_speakers[len(self.speeches) :]) if len(self.speeches) < len(expected_speakers) else set()
         return constants.DEFAULT_JUDGE_NAME in remaining_speakers and len(remaining_speakers) == 1
 
     def full_string_value(self) -> str:

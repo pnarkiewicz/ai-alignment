@@ -1,21 +1,21 @@
-from data.dataset import DataRow, DatasetType, RawDataLoader, RawDataset, SplitType
-from data.quality_debates_loader import (
-    QualityDebatesDataset,
-    QualityConsultancyLoader,
-    QualityDebatesLoader,
-    QualityModelBasedDebateLoader,
-    QualityTranscriptsLoader,
-)
-import utils.constants as constants
-
-from typing import Any, Optional
 import json
-import itertools
 import os
 import random
 import re
 import statistics
+from typing import Any, Optional
+
+from data.dataset import DataRow, DatasetType, RawDataLoader, RawDataset, SplitType
+from data.quality_debates_loader import (
+    QualityConsultancyLoader,
+    QualityDebatesDataset,
+    QualityDebatesLoader,
+    QualityModelBasedDebateLoader,
+    QualityTranscriptsLoader,
+)
 from utils.constants import DEBUG
+import utils.constants as constants
+
 
 class QualityDataset(RawDataset):
     def __init__(
@@ -153,7 +153,6 @@ class QualityDataset(RawDataset):
         val_stories = set([row.story_title for row in self.data[SplitType.VAL]])
 
         test_data = []
-        added_count = 0
         for row in second_half:
             if row.story_title not in val_stories:
                 test_data.append(row)

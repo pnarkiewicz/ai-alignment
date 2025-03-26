@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from models.model import Model, ModelInput, ModelResponse
+from typing import Optional
+
 from data import SpeakerType, SpeechData
+from models.model import Model, ModelInput, ModelResponse
 from utils import logger_utils
 import utils.constants as constants
-
-from typing import Optional
 
 
 class HumanModel(Model):
@@ -21,9 +21,7 @@ class HumanModel(Model):
         """
         super().__init__(alias=alias, is_debater=is_debater)
         position = 0 if debater_name == constants.DEFAULT_DEBATER_A_NAME else 1
-        self.speeches = [
-            speech for speech in filter(lambda x: x.speaker_type == SpeakerType.DEBATER and x.position == position, speeches)
-        ]
+        self.speeches = [speech for speech in filter(lambda x: x.speaker_type == SpeakerType.DEBATER and x.position == position, speeches)]
         self.speech_idx = 0
         self.debater_name = debater_name
         self.logger = logger_utils.get_default_logger(__name__)
@@ -50,8 +48,9 @@ class HumanModel(Model):
             speech = self.speeches[self.speech_idx].text
             self.speech_idx += 1
         else:
-            logger.warn(
-                f"Human debater {self.alias} was unable to generate a speech. Current index is {self.speech_idx} but there are only {len(self.speeches)} in its speech list."
+            self.logger.warn(
+                f"Human debater {self.alias} was unable to generate a speech.",
+                f"Current index is {self.speech_idx} but there are only {len(self.speeches)} in its speech list.",
             )
         return [ModelResponse(speech=speech, prompt="\n".join(model_input.content for model_input in inputs[0]))]
 

@@ -1,13 +1,12 @@
-"""This script loads debates that John Hughes, Dan Valentine, and Akbir Khan ran with GPT-4 (https://github.com/akbir/debate), 
+"""This script loads debates that John Hughes, Dan Valentine, and Akbir Khan ran with GPT-4 (https://github.com/akbir/debate),
 and reformats them to the format that QualityDebatesLoader expects.
 """
 
 import json
-import pandas as pd
 import re
-import sys
 from typing import Optional
 
+import pandas as pd
 
 output_gpt_only = "/Users/samarnesen/nyu/scratch/binned_gpt_debates_and_consultancies.jsonl"
 output_combined = "/Users/samarnesen/nyu/scratch/binned_human_and_gpt4_debates_and_consultancies.jsonl"
@@ -19,15 +18,15 @@ external_debate_sources = [
 
 def get_debaters_from_file_path(file_path: str):
     filename = file_path.split("/")[-3]
-    split_debaters = filename.split("_")
+    filename.split("_")
     debater_one = {"model_type": None, "bo": 0, "co": 0}
     debater_two = {"model_type": None, "bo": 0, "co": 0}
     current = None
     for comp in filename.split("_"):
-        if re.match("Bo\d", comp):
-            current["bo"] = int(re.match("Bo(\d)", comp).group(1))
-        elif re.match("Co\d", comp):
-            current["co"] = int(re.match("Co(\d)", comp).group(1))
+        if re.match("Bo\\d", comp):
+            current["bo"] = int(re.match("Bo(\\d)", comp).group(1))
+        elif re.match("Co\\d", comp):
+            current["co"] = int(re.match("Co(\\d)", comp).group(1))
         else:
             if not current:
                 current = debater_one
@@ -74,7 +73,7 @@ def get_external_debates(file_path: str):
             answers = [transcript["answers"]["correct"], transcript["answers"]["incorrect"]]
 
         rd = transcript["rounds"][0]
-        is_debate = rd["correct"] is not None and rd["incorrect"] is not None
+        rd["correct"] is not None and rd["incorrect"] is not None
         correct_turn = create_turn(text=rd["correct"], correct=True, swap=swap) if rd["correct"] else None
         incorrect_turn = create_turn(text=rd["incorrect"], correct=False, swap=swap) if rd["incorrect"] else None
 

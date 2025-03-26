@@ -1,12 +1,11 @@
-"""This script loads debates that John Hughes, Dan Valentine, and Akbir Khan ran with GPT-4 (https://github.com/akbir/debate), 
+"""This script loads debates that John Hughes, Dan Valentine, and Akbir Khan ran with GPT-4 (https://github.com/akbir/debate),
 and reformats them to the format that QualityDebatesLoader expects.
 """
 
 import json
-import pandas as pd
 import re
-import sys
 
+import pandas as pd
 
 """
 external_debate_sources = [
@@ -39,15 +38,15 @@ external_debate_sources = [
 
 def get_debaters_from_file_path(file_path: str):
     filename = file_path.split("/")[-3]
-    split_debaters = filename.split("_")
+    filename.split("_")
     debater_one = {"model_type": None, "bo": 0, "co": 0}
     debater_two = {"model_type": None, "bo": 0, "co": 0}
     current = None
     for comp in filename.split("_"):
-        if re.match("Bo\d", comp):
-            current["bo"] = int(re.match("Bo(\d)", comp).group(1))
-        elif re.match("Co\d", comp):
-            current["co"] = int(re.match("Co(\d)", comp).group(1))
+        if re.match("Bo\\d", comp):
+            current["bo"] = int(re.match("Bo(\\d)", comp).group(1))
+        elif re.match("Co\\d", comp):
+            current["co"] = int(re.match("Co(\\d)", comp).group(1))
         else:
             if not current:
                 current = debater_one
