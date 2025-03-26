@@ -6,3 +6,4 @@ datasets/
 __pycache__/
 *.py[cod]
 *$py.class
+wandb/

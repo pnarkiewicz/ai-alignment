@@ -8,7 +8,7 @@ import utils.constants as constants
 from abc import ABC
 from enum import Enum
 from typing import Literal, Optional
-
+from utils.constants import DEBUG
 
 class ModelType(Enum):
     RANDOM = 1
@@ -34,7 +34,7 @@ class BestOfNConfig(BaseModel):
 
 class GenerationParams(BaseModel):
     max_new_tokens: int = 300
-    temperature: float = 0.5
+    temperature: float = 0.7 if DEBUG else 0.5 # TODO: parametrise this
     top_p: float = 1.0
     repetition_penalty: float = 1.2
     do_sample: bool = True

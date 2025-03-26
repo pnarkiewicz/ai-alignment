@@ -52,7 +52,7 @@ from trl.core import (
     stack_dicts,
     stats_to_np,
 )
-from trl.import_utils import is_npu_available, is_torch_greater_2_0, is_xpu_available
+# from trl.import_utils import is_npu_available, is_torch_greater_2_0, is_xpu_available
 from trl.models import (
     SUPPORTED_ARCHITECTURES,
     PreTrainedModelWrapper,
@@ -369,12 +369,17 @@ class VerbosePPOTrainer(BaseTrainer):
         if not getattr(self.model, "is_sequential_parallel", False):
             self.current_device = self.accelerator.device
         else:
-            if is_xpu_available():
-                self.current_device = torch.device("xpu:0")
-            elif is_npu_available():
-                self.current_device = torch.device("npu:0")
-            else:
+            # TODO: handle this nicely
+ 
+            # if is_xpu_available():
+            #     self.current_device = torch.device("xpu:0")
+            # elif is_npu_available():
+            #     self.current_device = torch.device("npu:0")
+            # else:
+            if torch.cuda.is_available():
                 self.current_device = torch.device("cuda:0")
+            else:
+                self.current_device = torch.device("mps:0")
 
         PPODecorators.optimize_device_cache = self.config.optimize_device_cache
 

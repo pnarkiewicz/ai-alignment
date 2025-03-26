@@ -12,6 +12,7 @@ openai>=1.51.0
 pandas==1.5.3
 peft==0.5.0
 pydantic>=2.0.0
+pytest==8.3.5
 python-dotenv
 pyyaml
 PyYAML
@@ -23,6 +24,6 @@ sentencepiece==0.1.99
 scipy
 spacy
 torch>=2.0.1
-transformers>=4.41.2
+transformers==4.49.0
 trl==0.9.2
 wandb

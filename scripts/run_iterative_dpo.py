@@ -1,3 +1,4 @@
+import wandb
 from script_utils import ScriptUtils, TrainType
 
 ScriptUtils.setup_script()
@@ -5,10 +6,20 @@ ScriptUtils.setup_script()
 from train import IterativeDirectPreferenceTrainer, TrainUtils
 
 args = ScriptUtils.get_args()
-script_config = ScriptUtils.get_training_run_script_config(args, train_type=TrainType.DPO)
+script_config = ScriptUtils.get_training_run_script_config(
+    args, train_type=TrainType.DPO
+)
 
-config = TrainUtils.parse_config(config_name=script_config.config_name, config_filepath=script_config.config_filepath)
-trainer = IterativeDirectPreferenceTrainer(config=config, smooth=True, is_local=args.test)
+
+config = TrainUtils.parse_config(
+    config_name=script_config.config_name, config_filepath=script_config.config_filepath
+)
+
+wandb.init(project="huggingface")
+
+trainer = IterativeDirectPreferenceTrainer(
+    config=config, smooth=True, is_local=args.test
+)
 epoch_size = (
     config.training_hyperparameters.supplemental.get("epoch_size", 2048)
     if config.training_hyperparameters.supplemental

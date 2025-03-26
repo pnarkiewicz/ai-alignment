@@ -1,10 +1,22 @@
 from data import DatasetConfig, loader_utils, RawDataset
 from debate import ScratchpadConfig, SpeechFormatStructure
 from models import LLMType, LLModel, ModelStub, TokenizerStub
+from models.arbitrary_attribute_model import ArbitraryAttributeModel
+from models.deterministic_model import DeterministicModel
+from models.openai_model import OpenAIModel
+from models.random_model import RandomModel
 from prompts import PromptLoadingConfig
 import utils.constants as constants
 
-from peft import LoraConfig, PeftConfig, PeftModel, PeftType, PromptTuningInit, PromptTuningConfig, TaskType
+from peft import (
+    LoraConfig,
+    PeftConfig,
+    PeftModel,
+    PeftType,
+    PromptTuningInit,
+    PromptTuningConfig,
+    TaskType,
+)
 from pydantic import BaseModel, ConfigDict, model_validator, field_validator
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import AutoModelForCausalLMWithValueHead
@@ -77,14 +89,19 @@ class TrainingConfig(BaseModel):
     requires_token: bool = False
     max_length: int = constants.MAX_LENGTH
     scratchpad_config: ScratchpadConfig = ScratchpadConfig()
-    speech_structure: SpeechFormatStructure | list[SpeechFormatStructure] = [SpeechFormatStructure.DEFAULT_DEBATE]
+    speech_structure: SpeechFormatStructure | list[SpeechFormatStructure] = [
+        SpeechFormatStructure.DEFAULT_DEBATE
+    ]
     tokenizer_file_path: Optional[str] = None
     model_config = ConfigDict(protected_namespaces=("protect_me_", "also_protect_"))
 
     @field_validator("speech_structure", mode="before")
     @classmethod
     def validate_speech_structure(
-        cls, speech_structure: str | SpeechFormatStructure | list[str] | list[SpeechFormatStructure]
+        cls,
+        speech_structure: (
+            str | SpeechFormatStructure | list[str] | list[SpeechFormatStructure]
+        ),
     ):
         if not isinstance(speech_structure, list):
             speech_structure = [speech_structure]
@@ -115,14 +132,18 @@ class TrainingConfig(BaseModel):
     @model_validator(mode="after")
     @classmethod
     def ensure_speech_structure_matches_datasets(cls, values):
-        if len(values.speech_structure) > 1 and len(values.speech_structure) != len(values.dataset):
+        if len(values.speech_structure) > 1 and len(values.speech_structure) != len(
+            values.dataset
+        ):
             raise ValueError(f"We could not match speech structures to each dataset")
         return values
 
 
 class TrainUtils:
     @classmethod
-    def create_datasets(cls, config: TrainingConfig, deduplicate: bool = False, **kwargs) -> list[RawDataset]:
+    def create_datasets(
+        cls, config: TrainingConfig, deduplicate: bool = False, **kwargs
+    ) -> list[RawDataset]:
         """
         Constructs a dataset that will later be converted into a training dataset.
 
@@ -138,7 +159,9 @@ class TrainUtils:
             dataset_configs = [dataset_configs]
 
         datasets = []
-        for dataset_config in filter(lambda x: x.dataset_type.is_instantiable, dataset_configs):
+        for dataset_config in filter(
+            lambda x: x.dataset_type.is_instantiable, dataset_configs
+        ):
             loader_cls = loader_utils.get_loader_type(dataset_config.dataset_type)
             dataset = loader_cls.load(
                 full_dataset_filepath=dataset_config.full_dataset_file_path,
@@ -154,7 +177,9 @@ class TrainUtils:
         return datasets
 
     @classmethod
-    def parse_config(cls, config_name: Optional[str], config_filepath: str) -> TrainingConfig:
+    def parse_config(
+        cls, config_name: Optional[str], config_filepath: str
+    ) -> TrainingConfig:
         """Loads a yaml file and converts it into a training configuration"""
         with open(config_filepath) as f:
             loaded_yaml = yaml.safe_load(f)
@@ -198,7 +223,7 @@ class TrainUtils:
             )
 
     @classmethod
-    def load_model(
+    def load_training_model(
         cls,
         config: TrainingConfig,
         is_local: bool = False,
@@ -221,15 +246,25 @@ class TrainUtils:
         if not is_local:
             peft_config = TrainUtils.get_peft_config(config=config)
             llm_cls = TrainUtils.get_llm_class(config)
-            model_name = config.model_name if not load_as_peft_model else config.reference_model_name
+            model_name = (
+                config.model_name
+                if not load_as_peft_model
+                else config.reference_model_name
+            )
             model = LLModel.instantiate_hf_model(
-                file_path=model_name, requires_token=config.requires_token, use_cache=False, quantize=llm_cls.QUANTIZE
+                file_path=model_name,
+                requires_token=config.requires_token,
+                use_cache=False,
+                quantize=llm_cls.QUANTIZE,
             )
 
             if load_as_peft_model:
                 adapter_path = config.model_name
                 model = PeftModel.from_pretrained(
-                    model=model, model_id=adapter_path, adapter_name="default", is_trainable=True
+                    model=model,
+                    model_id=adapter_path,
+                    adapter_name="default",
+                    is_trainable=True,
                 )
 
             if requires_value_head:
@@ -261,11 +296,50 @@ class TrainUtils:
             return ModelStub()
 
     @classmethod
-    def get_tokenizer(cls, config: TrainingConfig, is_local: bool = False) -> AutoTokenizer:
+    def load_judge_model(
+        cls, config: TrainingConfig, is_local: bool = False
+    ) -> AutoModelForCausalLM:
+        """Loads the judge model"""
+
+        DEFAULT_JUDGE_ALIAS = "default-judge"
+        supplemental = config.training_hyperparameters.supplemental or {}
+        judge_type = supplemental.get("judge_type", "openai")
+
+        if judge_type == "arbitrary_attribute":
+            return ArbitraryAttributeModel(
+                alias=DEFAULT_JUDGE_ALIAS,
+                is_debater=False,
+                feature=supplemental.get("feature", "l"),
+            )
+
+        if (
+            judge_type == "deterministic"
+        ):  # Currently, DEFAULT_DEBATER_A_NAME is hardcoded as the winner
+            return DeterministicModel(
+                alias=DEFAULT_JUDGE_ALIAS,
+                is_debater=False,
+            )
+
+        if is_local:
+            return RandomModel(alias=DEFAULT_JUDGE_ALIAS, is_debater=False)
+
+        else:
+            return OpenAIModel(
+                alias=DEFAULT_JUDGE_ALIAS,
+                is_debater=False,
+                endpoint="ft:gpt-4-0613:nyu-arg::90NW3Tbx",
+            )
+
+    @classmethod
+    def get_tokenizer(
+        cls, config: TrainingConfig, is_local: bool = False
+    ) -> AutoTokenizer:
         """Gets the tokenizer associated with the specified model"""
         if is_local or config.model_name == "stub_model":
             return TokenizerStub()
-        return LLModel.instantiate_tokenizer(file_path=config.model_name, requires_token=config.requires_token)
+        return LLModel.instantiate_tokenizer(
+            file_path=config.model_name, requires_token=config.requires_token
+        )
 
     @classmethod
     def get_llm_class(cls, config: TrainingConfig):

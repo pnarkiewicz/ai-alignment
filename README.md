@@ -1,6 +1,20 @@
 #  NYU Debate Modeling Project
 
+## Local DPO train
+* Oparty na modelu: https://huggingface.co/delphi-suite/v0-llama2-100k
+* Należy w pliku konfiguracyjnym `ai-ailgnment/train/configs/dpo_config.yaml` zaktualizować:
+	* Ścieżkę do modelu `model_name`
+ 	* Ścieżkę do outputu `output_dir`
+* Logi/wykresy lecą do `wandb`: wymaga zalogowania/tokena
+* U mnie lokalnie leci ~4min, czasem efekty widać dużo szybciej. Starałem się zbić pamięć: raczej da się wyżyłować bardziej, ale to czasem prowadzi do błędów.
+* W pliku `utils/constants.py` zdefiniowana zmienna `DEBUG`. Parę rzeczy zmieniam w kodzie, gdy jest ustawiona na `True`.
+
+
+``` 
+python scripts/run_iterative_dpo.py --config='Local Train'
+```
 ## Setup notes - Piotrek:
+
 * Należy stworzyć plik `.env` w bazowym folderze:
   ```
   SRC_ROOT=/ścieżka/do/repo/
@@ -30,6 +44,17 @@ Problemy:
 
 TODO:
 * `Judge` podczas treningu jest hardcoded na call'e do `OpenAI API`. Trzeba to sparametryzować
+
+## Train - Przewodnik
+* Zmienna `local` w configu odpowiada za testy. Nie jest to najlepsza nazwa i powinna być zmieniona na test, ale nie chciałem zmieniać od razu całego kodu.
+
+## Tests
+**pytest** could be particularly important when one's implement things with LLMs. One of most productive and error-prune way of "vibe-coding" is ask code-assistant for tests at the beggining.
+
+Run all tests using:
+```bash
+pytest
+```
 
 ## Setup
 

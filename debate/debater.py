@@ -10,9 +10,9 @@ import utils.constants as constants
 
 from pydantic import BaseModel
 
-from typing import Optional, Union
+from typing import Optional
 import copy
-
+from utils.constants import DEBUG, GENERATION_LEN
 
 class Debater(Agent):
     def __init__(
@@ -133,6 +133,8 @@ class BestOfNDebater(Debater):
 
     def __call__(self):
         # just doing round 1 for now and unbatched inputs
+        self.speech_format.tokens_per_speech = GENERATION_LEN if DEBUG else self.speech_format.tokens_per_speech
+
         model_responses = self.model.predict(
             inputs=[self.transcripts[0].to_model_input() for _ in range(self.config.n)],
             max_new_tokens=self.speech_format.tokens_per_speech,
@@ -180,6 +182,14 @@ class BestOfNDebater(Debater):
                     judge_transcript.add_speech(speaker=self.name, content=speech)
 
                 judge_inputs.append(judge_transcript.to_model_input())
+
+        if len(judge_transcript.speeches) == 1:
+            self.logger.warning(f"[pikaminski] This is probably a bug, not sure why it's happening "
+                                "-- number of speeches is 1 and should be 2."
+                                " If it's your first time here, I'll open a debugger for you:")
+            if not hasattr(self, "open_debugger"):
+                self.open_debugger = False
+                breakpoint()
 
         judge_model_response = self.judge.model.predict(
             inputs=judge_inputs, max_new_tokens=15, speech_structure=SpeechStructure.DECISION
