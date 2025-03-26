@@ -1,12 +1,11 @@
-from data.dataset import DataRow, DatasetType, RawDataLoader, RawDataset, SpeakerType, SpeechData, SplitType
-from utils import input_utils, quote_utils
-import utils.constants as constants
-
-from typing import Any, Callable, Optional, Type
 import json
 import os
 import re
-import sys  # TODO: remove
+from typing import Any, Callable, Optional, Type
+
+from data.dataset import DataRow, DatasetType, RawDataLoader, RawDataset, SpeakerType, SpeechData, SplitType
+from utils import input_utils, quote_utils
+import utils.constants as constants
 
 
 class QualityDebatesDataset(RawDataset):
@@ -110,7 +109,7 @@ class QualityDebatesDataset(RawDataset):
             if "\n" in quote:
                 replacement = re.sub("\n+", "", quote)
                 replacement = re.sub("\t", "", replacement)
-                replacement = re.sub("\s+", " ", replacement).strip()
+                replacement = re.sub("\\s+", " ", replacement).strip()
                 text = re.sub(re.escape(quote), replacement, text, flags=re.DOTALL)
         return text
 

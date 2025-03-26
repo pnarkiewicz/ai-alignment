@@ -1,12 +1,12 @@
-from data import DataRow
-import utils.constants as constants
+from enum import Enum
+import os
+from typing import Any, Optional
 
 from pydantic import BaseModel
 import yaml
 
-from enum import Enum
-from typing import Any, Optional
-import os
+from data import DataRow
+import utils.constants as constants
 
 
 class HardcodedTopicConfig(BaseModel):
@@ -143,9 +143,7 @@ class PromptParser:
         )
 
     @classmethod
-    def convert_data_row_to_default_prompt_config(
-        cls, row: DataRow, position: int, use_title_as_background_text: bool = False
-    ) -> PromptConfig:
+    def convert_data_row_to_default_prompt_config(cls, row: DataRow, position: int, use_title_as_background_text: bool = False) -> PromptConfig:
         """Generates a default prompt config using a data row -- used in training"""
         position = max(position, 0)
         return PromptConfig(

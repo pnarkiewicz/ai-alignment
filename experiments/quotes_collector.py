@@ -1,11 +1,11 @@
+import copy
+
+from pydantic import BaseModel
+
 from debate import DebateRoundSummary
 from experiments.experiment_loader import ExperimentConfig, ExperimentLoader
 from utils import logger_utils, quote_utils
 import utils.constants as constants
-
-from pydantic import BaseModel
-
-import copy
 
 
 class QuoteStats(BaseModel):
@@ -42,42 +42,22 @@ class QuotesCollector:
             self.alias_to_results[alias][constants.INCORRECT] = copy.deepcopy(default)
 
         def is_correct(speaker: str):
-            return (
-                speaker == constants.DEFAULT_DEBATER_A_NAME
-                and summary.metadata.first_debater_correct
-                and summary.first_debater_speaks
-            ) or (
-                speaker == constants.DEFAULT_DEBATER_B_NAME
-                and not summary.metadata.first_debater_correct
-                and summary.second_debater_speaks
+            return (speaker == constants.DEFAULT_DEBATER_A_NAME and summary.metadata.first_debater_correct and summary.first_debater_speaks) or (
+                speaker == constants.DEFAULT_DEBATER_B_NAME and not summary.metadata.first_debater_correct and summary.second_debater_speaks
             )
 
         def is_incorrect(speaker: str):
-            return (
-                speaker == constants.DEFAULT_DEBATER_A_NAME
-                and not summary.metadata.first_debater_correct
-                and summary.first_debater_speaks
-            ) or (
-                speaker == constants.DEFAULT_DEBATER_B_NAME
-                and summary.metadata.first_debater_correct
-                and summary.second_debater_speaks
+            return (speaker == constants.DEFAULT_DEBATER_A_NAME and not summary.metadata.first_debater_correct and summary.first_debater_speaks) or (
+                speaker == constants.DEFAULT_DEBATER_B_NAME and summary.metadata.first_debater_correct and summary.second_debater_speaks
             )
 
         def is_winner(speaker: str):
-            return (
-                speaker == constants.DEFAULT_DEBATER_A_NAME and summary.first_debater_wins and summary.first_debater_speaks
-            ) or (
-                speaker == constants.DEFAULT_DEBATER_B_NAME
-                and not summary.first_debater_wins
-                and summary.second_debater_speaks
+            return (speaker == constants.DEFAULT_DEBATER_A_NAME and summary.first_debater_wins and summary.first_debater_speaks) or (
+                speaker == constants.DEFAULT_DEBATER_B_NAME and not summary.first_debater_wins and summary.second_debater_speaks
             )
 
         def is_loser(speaker: str):
-            return (
-                speaker == constants.DEFAULT_DEBATER_A_NAME
-                and not summary.first_debater_wins
-                and summary.first_debater_speaks
-            ) or (
+            return (speaker == constants.DEFAULT_DEBATER_A_NAME and not summary.first_debater_wins and summary.first_debater_speaks) or (
                 speaker == constants.DEFAULT_DEBATER_B_NAME and summary.first_debater_wins and summary.second_debater_speaks
             )
 
@@ -161,14 +141,7 @@ class QuotesCollector:
         for alias in self.alias_to_results:
             simplified_results[alias] = copy.deepcopy(self.alias_to_results[alias])
             for key in simplified_results[alias]:
-                vals = [
-                    idx
-                    for idx, pair in filter(
-                        lambda x: x[1][1] > 0, enumerate(simplified_results[alias][key].quote_length_to_accuracy)
-                    )
-                ]
+                vals = [idx for idx, pair in filter(lambda x: x[1][1] > 0, enumerate(simplified_results[alias][key].quote_length_to_accuracy))]
                 max_val = max(vals) if vals else 0
-                simplified_results[alias][key].quote_length_to_accuracy = simplified_results[alias][
-                    key
-                ].quote_length_to_accuracy[: (max_val + 1)]
+                simplified_results[alias][key].quote_length_to_accuracy = simplified_results[alias][key].quote_length_to_accuracy[: (max_val + 1)]
         return simplified_results

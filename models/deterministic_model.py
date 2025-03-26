@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from models.model import Model, ModelInput, ModelResponse, SpeechStructure
 import utils.constants as constants
-
-from typing import Optional
 
 
 class DeterministicModel(Model):
@@ -51,9 +51,7 @@ class DeterministicModel(Model):
             Exception: Raises Exception if num_return_sequences > 1 and len(inputs) > 1
         """
         if len(inputs) > 1 and num_return_sequences > 1:
-            raise Exception(
-                f"Length of input ({len(inputs)}) and num_return_sequences ({num_return_sequences}) cannot both be greater than 1."
-            )
+            raise Exception(f"Length of input ({len(inputs)}) and num_return_sequences ({num_return_sequences}) cannot both be greater than 1.")
 
         if speech_structure == SpeechStructure.DECISION:
             return [ModelResponse(decision=constants.DEFAULT_DEBATER_A_NAME) for i in range(len(inputs))]

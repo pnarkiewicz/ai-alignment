@@ -1,11 +1,11 @@
-from dotenv import load_dotenv
-from pydantic import BaseModel
-
-from enum import Enum
 import argparse
+from enum import Enum
 import logging
 import os
 import sys
+
+from dotenv import load_dotenv
+from pydantic import BaseModel
 
 
 class DebateRoundScriptConfig(BaseModel):
@@ -118,6 +118,4 @@ class ScriptUtils:
 
     @classmethod
     def get_training_run_script_config(cls, args, train_type: TrainType) -> ModelRunScriptConfig:
-        return ModelRunScriptConfig(
-            config_filepath=ScriptUtils.get_config_filepath(train_type=train_type), config_name=args.configuration
-        )
+        return ModelRunScriptConfig(config_filepath=ScriptUtils.get_config_filepath(train_type=train_type), config_name=args.configuration)

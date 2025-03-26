@@ -16,55 +16,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from utils import logger_utils
-
-import inspect
-import random
-import warnings
 from collections import defaultdict
 from contextlib import contextmanager, nullcontext
 from copy import deepcopy
 from functools import wraps
+import inspect
+import random
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
+import warnings
 
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from accelerate import PartialState
 from accelerate.utils import is_deepspeed_available, tqdm
 from datasets import Dataset
+import numpy as np
+from packaging import version
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from transformers import (
-    AutoModelForCausalLM,
-    DataCollator,
-    PreTrainedModel,
-    PreTrainedTokenizerBase,
-    Trainer,
-    TrainingArguments,
-)
+import transformers
+from transformers import AutoModelForCausalLM, DataCollator, PreTrainedModel, PreTrainedTokenizerBase, Trainer, TrainingArguments
 from transformers.trainer_callback import TrainerCallback
 from transformers.trainer_utils import EvalLoopOutput
+from trl.models import create_reference_model, PreTrainedModelWrapper
+from trl.trainer.utils import disable_dropout_in_model, DPODataCollatorWithPadding, pad_to_length, peft_module_casting_to_bf16, trl_sanitze_kwargs_for_tagging
 
-from trl.models import PreTrainedModelWrapper, create_reference_model
-from trl.trainer.utils import (
-    DPODataCollatorWithPadding,
-    disable_dropout_in_model,
-    pad_to_length,
-    peft_module_casting_to_bf16,
-    trl_sanitze_kwargs_for_tagging,
-)
-from packaging import version
-import transformers
+from utils import logger_utils
 from utils.constants import DEBUG
 
 PEFT_AVAILABLE = True
 try:
-    from peft import (
-        PeftModel,
-        get_peft_model,
-        prepare_model_for_kbit_training,
-    )
+    from peft import get_peft_model, PeftModel, prepare_model_for_kbit_training
 except ImportError:
     print("PEFT is not installed. Please install it to use the PEFT models.")
     PEFT_AVAILABLE = False
@@ -216,9 +198,7 @@ class SmoothedDPOTrainer(Trainer):
             model = AutoModelForCausalLM.from_pretrained(model, **model_init_kwargs)
 
         if isinstance(ref_model, str):
-            warnings.warn(
-                "You passed a ref model_id to the DPOTrainer. This will automatically create an " "`AutoModelForCausalLM`"
-            )
+            warnings.warn("You passed a ref model_id to the DPOTrainer. This will automatically create an " "`AutoModelForCausalLM`")
             ref_model = AutoModelForCausalLM.from_pretrained(ref_model, **ref_model_init_kwargs)
 
         # Initialize this variable to False. This helps tracking the case when `peft_module_casting_to_bf16`
@@ -226,9 +206,7 @@ class SmoothedDPOTrainer(Trainer):
         self._peft_has_been_casted_to_bf16 = False
 
         if not PEFT_AVAILABLE and peft_config is not None:
-            raise ValueError(
-                "PEFT is not installed and you passed a `peft_config` in the trainer's kwargs, please install it to use the PEFT models"
-            )
+            raise ValueError("PEFT is not installed and you passed a `peft_config` in the trainer's kwargs, please install it to use the PEFT models")
         elif PEFT_AVAILABLE and peft_config is not None:
             # if model is a peft model and we have a peft_config, we merge and unload it first
             if isinstance(model, PeftModel):
@@ -246,9 +224,9 @@ class SmoothedDPOTrainer(Trainer):
                 )
 
             if getattr(model, "is_loaded_in_8bit", False) or getattr(model, "is_loaded_in_4bit", False):
-                _support_gc_kwargs = hasattr(
-                    args, "gradient_checkpointing_kwargs"
-                ) and "gradient_checkpointing_kwargs" in list(inspect.signature(prepare_model_for_kbit_training).parameters)
+                _support_gc_kwargs = hasattr(args, "gradient_checkpointing_kwargs") and "gradient_checkpointing_kwargs" in list(
+                    inspect.signature(prepare_model_for_kbit_training).parameters
+                )
 
                 prepare_model_kwargs = {"use_gradient_checkpointing": args.gradient_checkpointing}
 
@@ -293,10 +271,7 @@ class SmoothedDPOTrainer(Trainer):
                 model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
 
         if generate_during_eval and not WANDB_AVAILABLE:
-            raise ValueError(
-                "`generate_during_eval=True` requires Weights and Biases to be installed."
-                " Please install `wandb` to resolve."
-            )
+            raise ValueError("`generate_during_eval=True` requires Weights and Biases to be installed." " Please install `wandb` to resolve.")
 
         if model is not None:
             self.is_encoder_decoder = model.config.is_encoder_decoder
@@ -322,15 +297,13 @@ class SmoothedDPOTrainer(Trainer):
             raise ValueError("tokenizer must be specified to tokenize a DPO dataset.")
         if max_length is None:
             warnings.warn(
-                "`max_length` is not set in the DPOTrainer's init"
-                " it will default to `512` by default, but you should do it yourself in the future.",
+                "`max_length` is not set in the DPOTrainer's init" " it will default to `512` by default, but you should do it yourself in the future.",
                 UserWarning,
             )
             max_length = 512
         if max_prompt_length is None:
             warnings.warn(
-                "`max_prompt_length` is not set in the DPOTrainer's init"
-                " it will default to `128` by default, but you should do it yourself in the future.",
+                "`max_prompt_length` is not set in the DPOTrainer's init" " it will default to `128` by default, but you should do it yourself in the future.",
                 UserWarning,
             )
             max_prompt_length = 128
@@ -384,9 +357,7 @@ class SmoothedDPOTrainer(Trainer):
         self._precomputed_eval_ref_log_probs = False
 
         if loss_type in ["hinge", "ipo", "kto_pair"] and label_smoothing > 0:
-            warnings.warn(
-                "You are using a loss type that does not support label smoothing. Ignoring label_smoothing parameter."
-            )
+            warnings.warn("You are using a loss type that does not support label smoothing. Ignoring label_smoothing parameter.")
 
         self.alpha = alpha
         self.beta = beta
@@ -429,15 +400,11 @@ class SmoothedDPOTrainer(Trainer):
         # Deepspeed Zero-3 does not support precompute_ref_log_probs
         if self.is_deepspeed_enabled:
             if self.accelerator.state.deepspeed_plugin.zero_stage == 3 and self.precompute_ref_log_probs:
-                raise ValueError(
-                    "You cannot use `precompute_ref_log_probs=True` with Deepspeed ZeRO-3. Please set `precompute_ref_log_probs=False`."
-                )
+                raise ValueError("You cannot use `precompute_ref_log_probs=True` with Deepspeed ZeRO-3. Please set `precompute_ref_log_probs=False`.")
 
         if self.ref_model is None:
             if not (self.is_peft_model or self.precompute_ref_log_probs):
-                raise ValueError(
-                    "No reference model and model is not a Peft model. Try setting `precompute_ref_log_probs=True`"
-                )
+                raise ValueError("No reference model and model is not a Peft model. Try setting `precompute_ref_log_probs=True`")
         else:
             if self.is_deepspeed_enabled:
                 self.ref_model = self._prepare_deepspeed(self.ref_model)
@@ -451,11 +418,7 @@ class SmoothedDPOTrainer(Trainer):
 
         if model is not None:
             if hasattr(model, "config"):
-                hidden_size = (
-                    max(model.config.hidden_sizes)
-                    if getattr(model.config, "hidden_sizes", None)
-                    else getattr(model.config, "hidden_size", None)
-                )
+                hidden_size = max(model.config.hidden_sizes) if getattr(model.config, "hidden_sizes", None) else getattr(model.config, "hidden_size", None)
                 if hidden_size is not None and config_kwargs["zero_optimization"]["stage"] == 3:
                     # Note that `stage3_prefetch_bucket_size` can produce DeepSpeed messages like: `Invalidate trace cache @ step 0: expected module 1, but got module 0`
                     # This is expected and is not an error, see: https://github.com/microsoft/DeepSpeed/discussions/4081
@@ -498,21 +461,15 @@ class SmoothedDPOTrainer(Trainer):
             reference_rejected_logps = []
             for padded_batch in tqdm(iterable=data_loader, desc="Train dataset reference log probs"):
                 reference_chosen_logp, reference_rejected_logp = self.compute_reference_log_probs(padded_batch)
-                reference_chosen_logp, reference_rejected_logp = self.accelerator.gather_for_metrics(
-                    (reference_chosen_logp, reference_rejected_logp)
-                )
+                reference_chosen_logp, reference_rejected_logp = self.accelerator.gather_for_metrics((reference_chosen_logp, reference_rejected_logp))
                 reference_chosen_logps.append(reference_chosen_logp.cpu())
                 reference_rejected_logps.append(reference_rejected_logp.cpu())
 
             all_reference_chosen_logps = torch.cat(reference_chosen_logps).float().numpy()
             all_reference_rejected_logps = torch.cat(reference_rejected_logps).float().numpy()
 
-            self.train_dataset = self.train_dataset.add_column(
-                name="reference_chosen_logps", column=all_reference_chosen_logps
-            )
-            self.train_dataset = self.train_dataset.add_column(
-                name="reference_rejected_logps", column=all_reference_rejected_logps
-            )
+            self.train_dataset = self.train_dataset.add_column(name="reference_chosen_logps", column=all_reference_chosen_logps)
+            self.train_dataset = self.train_dataset.add_column(name="reference_rejected_logps", column=all_reference_rejected_logps)
 
             self._precomputed_train_ref_log_probs = True
 
@@ -549,9 +506,7 @@ class SmoothedDPOTrainer(Trainer):
             reference_rejected_logps = []
             for padded_batch in tqdm(iterable=data_loader, desc="Eval dataset reference log probs"):
                 reference_chosen_logp, reference_rejected_logp = self.compute_reference_log_probs(padded_batch)
-                reference_chosen_logp, reference_rejected_logp = self.accelerator.gather_for_metrics(
-                    (reference_chosen_logp, reference_rejected_logp)
-                )
+                reference_chosen_logp, reference_rejected_logp = self.accelerator.gather_for_metrics((reference_chosen_logp, reference_rejected_logp))
                 reference_chosen_logps.append(reference_chosen_logp.cpu())
                 reference_rejected_logps.append(reference_rejected_logp.cpu())
 
@@ -666,14 +621,10 @@ class SmoothedDPOTrainer(Trainer):
 
             # Make sure prompts only have one different token at most an
             # and length only differs by 1 at most
-            num_diff_tokens = sum(
-                [a != b for a, b in zip(chosen_tokens["prompt_input_ids"], rejected_tokens["prompt_input_ids"])]
-            )
+            num_diff_tokens = sum([a != b for a, b in zip(chosen_tokens["prompt_input_ids"], rejected_tokens["prompt_input_ids"])])
             num_diff_len = abs(chosen_prompt_len_input_ids - rejected_prompt_len_input_ids)
             if num_diff_tokens > 1 or num_diff_len > 1:
-                raise ValueError(
-                    "Chosen and rejected prompt_input_ids might only differ on the " "last token due to tokenizer merge ops."
-                )
+                raise ValueError("Chosen and rejected prompt_input_ids might only differ on the " "last token due to tokenizer merge ops.")
 
             # add BOS token to head of prompt
             prompt_tokens["prompt_input_ids"] = [self.tokenizer.bos_token_id] + prompt_tokens["prompt_input_ids"]
@@ -712,16 +663,10 @@ class SmoothedDPOTrainer(Trainer):
                         answer_tokens[k] = answer_tokens[k][: self.max_length - self.max_prompt_length]
 
             # Create labels
-            chosen_sequence_tokens = {
-                k: chosen_tokens[f"prompt_{k}"] + chosen_tokens[k] for k in ["input_ids", "attention_mask"]
-            }
-            rejected_sequence_tokens = {
-                k: rejected_tokens[f"prompt_{k}"] + rejected_tokens[k] for k in ["input_ids", "attention_mask"]
-            }
+            chosen_sequence_tokens = {k: chosen_tokens[f"prompt_{k}"] + chosen_tokens[k] for k in ["input_ids", "attention_mask"]}
+            rejected_sequence_tokens = {k: rejected_tokens[f"prompt_{k}"] + rejected_tokens[k] for k in ["input_ids", "attention_mask"]}
             chosen_sequence_tokens["labels"] = chosen_sequence_tokens["input_ids"][:]
-            chosen_sequence_tokens["labels"][: len(chosen_tokens["prompt_input_ids"])] = [self.label_pad_token_id] * len(
-                chosen_tokens["prompt_input_ids"]
-            )
+            chosen_sequence_tokens["labels"][: len(chosen_tokens["prompt_input_ids"])] = [self.label_pad_token_id] * len(chosen_tokens["prompt_input_ids"])
             rejected_sequence_tokens["labels"] = rejected_sequence_tokens["input_ids"][:]
             rejected_sequence_tokens["labels"][: len(rejected_tokens["prompt_input_ids"])] = [self.label_pad_token_id] * len(
                 rejected_tokens["prompt_input_ids"]
@@ -738,15 +683,9 @@ class SmoothedDPOTrainer(Trainer):
                     batch[f"{k}{type_key}"] = tokens
 
         else:
-            chosen_tokens = self.tokenizer(
-                chosen, truncation=True, max_length=self.max_target_length, add_special_tokens=True
-            )
-            rejected_tokens = self.tokenizer(
-                rejected, truncation=True, max_length=self.max_target_length, add_special_tokens=True
-            )
-            prompt_tokens = self.tokenizer(
-                prompt, truncation=True, max_length=self.max_prompt_length, add_special_tokens=True
-            )
+            chosen_tokens = self.tokenizer(chosen, truncation=True, max_length=self.max_target_length, add_special_tokens=True)
+            rejected_tokens = self.tokenizer(rejected, truncation=True, max_length=self.max_target_length, add_special_tokens=True)
+            prompt_tokens = self.tokenizer(prompt, truncation=True, max_length=self.max_prompt_length, add_special_tokens=True)
 
             batch["chosen_labels"] = chosen_tokens["input_ids"]
             batch["rejected_labels"] = rejected_tokens["input_ids"]
@@ -754,21 +693,15 @@ class SmoothedDPOTrainer(Trainer):
             batch["prompt_attention_mask"] = prompt_tokens["attention_mask"]
 
             if model is not None and hasattr(model, "prepare_decoder_input_ids_from_labels"):
-                batch["rejected_decoder_input_ids"] = model.prepare_decoder_input_ids_from_labels(
-                    labels=torch.tensor(batch["rejected_labels"])
-                )
-                batch["chosen_decoder_input_ids"] = model.prepare_decoder_input_ids_from_labels(
-                    labels=torch.tensor(batch["chosen_labels"])
-                )
+                batch["rejected_decoder_input_ids"] = model.prepare_decoder_input_ids_from_labels(labels=torch.tensor(batch["rejected_labels"]))
+                batch["chosen_decoder_input_ids"] = model.prepare_decoder_input_ids_from_labels(labels=torch.tensor(batch["chosen_labels"]))
 
         return batch
 
     @contextmanager
     def null_ref_context(self):
         """Context manager for handling null reference model (that is, peft adapter manipulation)."""
-        with self.accelerator.unwrap_model(
-            self.model
-        ).disable_adapter() if self.is_peft_model and not self.ref_adapter_name else nullcontext():
+        with self.accelerator.unwrap_model(self.model).disable_adapter() if self.is_peft_model and not self.ref_adapter_name else nullcontext():
             if self.ref_adapter_name:
                 self.model.set_adapter(self.ref_adapter_name)
             yield
@@ -899,10 +832,7 @@ class SmoothedDPOTrainer(Trainer):
             pref = preference.item()
         if self.loss_type == "sigmoid":
             label_smoothing = self.label_smoothing
-            losses = (
-                -F.logsigmoid(self.beta * logits) * (1 - label_smoothing)
-                - F.logsigmoid(-self.beta * logits) * label_smoothing
-            )
+            losses = -F.logsigmoid(self.beta * logits) * (1 - label_smoothing) - F.logsigmoid(-self.beta * logits) * label_smoothing
         elif self.loss_type == "bon":
             """
             ipo_loss_pref = (logits - (1 / (2 * self.beta))) ** 2
@@ -919,9 +849,7 @@ class SmoothedDPOTrainer(Trainer):
             )
             """
 
-            dpo_loss = (-F.logsigmoid(self.beta * logits) * preference) - (
-                F.logsigmoid(-self.beta * logits) * (1 - preference)
-            )
+            dpo_loss = (-F.logsigmoid(self.beta * logits) * preference) - (F.logsigmoid(-self.beta * logits) * (1 - preference))
             sft_loss = -policy_chosen_logps.to(self.accelerator.device)
             losses = (self.alpha * sft_loss) + ((1 - self.alpha) * dpo_loss)
 
@@ -937,20 +865,10 @@ class SmoothedDPOTrainer(Trainer):
 
             self.logger.info(f"Overall Loss: {losses.item()}\tDPO Loss: {dpo_loss.item()}\tSFT Loss: {sft_loss.item()}")
         else:
-            raise ValueError(
-                f"Unknown loss type: {self.loss_type}. Should be one of ['sigmoid', 'hinge', 'ipo', 'kto_pair', 'bon']"
-            )
+            raise ValueError(f"Unknown loss type: {self.loss_type}. Should be one of ['sigmoid', 'hinge', 'ipo', 'kto_pair', 'bon']")
 
-        chosen_rewards = (
-            self.beta
-            * (policy_chosen_logps.to(self.accelerator.device) - reference_chosen_logps.to(self.accelerator.device)).detach()
-        )
-        rejected_rewards = (
-            self.beta
-            * (
-                policy_rejected_logps.to(self.accelerator.device) - reference_rejected_logps.to(self.accelerator.device)
-            ).detach()
-        )
+        chosen_rewards = self.beta * (policy_chosen_logps.to(self.accelerator.device) - reference_chosen_logps.to(self.accelerator.device)).detach()
+        rejected_rewards = self.beta * (policy_rejected_logps.to(self.accelerator.device) - reference_rejected_logps.to(self.accelerator.device)).detach()
 
         return losses, chosen_rewards, rejected_rewards
 
@@ -1064,7 +982,7 @@ class SmoothedDPOTrainer(Trainer):
             policy_chosen_logits,
             policy_rejected_logits,
         ) = self.concatenated_forward(model, batch)
-        
+
         if torch.isnan(policy_chosen_logps).any() or torch.isnan(policy_rejected_logps).any():
             self.logger.error("NaN detected in logps")
             breakpoint()
@@ -1091,8 +1009,12 @@ class SmoothedDPOTrainer(Trainer):
                         _,
                     ) = self.concatenated_forward(self.ref_model, batch)
 
-
-        if torch.isnan(policy_chosen_logps).any() or torch.isnan(policy_rejected_logps).any() or torch.isnan(reference_chosen_logps).any() or torch.isnan(reference_rejected_logps).any():
+        if (
+            torch.isnan(policy_chosen_logps).any()
+            or torch.isnan(policy_rejected_logps).any()
+            or torch.isnan(reference_chosen_logps).any()
+            or torch.isnan(reference_rejected_logps).any()
+        ):
             self.logger.error("NaN detected in logps")
             breakpoint()
 
@@ -1280,9 +1202,7 @@ class SmoothedDPOTrainer(Trainer):
             self.state.log_history.pop()
 
         # Base evaluation
-        initial_output = super().evaluation_loop(
-            dataloader, description, prediction_loss_only, ignore_keys, metric_key_prefix
-        )
+        initial_output = super().evaluation_loop(dataloader, description, prediction_loss_only, ignore_keys, metric_key_prefix)
 
         return initial_output
 

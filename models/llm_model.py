@@ -1,38 +1,35 @@
 from __future__ import annotations
 
-from models.model import GenerationParams, Model, ModelInput, ModelResponse, ProbeHyperparams, SpeechStructure
-from models.openai_model import OpenAIModel
-from prompts import RoleType
-from utils import logger_utils, string_utils, timer, get_device
-import utils.constants as constants
-
-from peft import PeftModel
-from pydantic import BaseModel
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, GenerationConfig
-import numpy as np
-import torch.nn as nn
-import torch.nn.functional as F
-import torch
-
-from dataclasses import dataclass
-from enum import auto, Enum
-from typing import Any, Optional, Type
 import base64
 import copy
+from dataclasses import dataclass
+from enum import auto, Enum
 import io
 import math
 import os
 import random
+from typing import Any, Optional, Type
+
+import numpy as np
+from peft import PeftModel
+from pydantic import BaseModel
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, GenerationConfig
+
+from models.model import GenerationParams, Model, ModelInput, ModelResponse, ProbeHyperparams, SpeechStructure
+from models.openai_model import OpenAIModel
+from prompts import RoleType
+from utils import get_device, logger_utils, string_utils, timer
 from utils.constants import DEBUG, GENERATION_LEN
+import utils.constants as constants
 
 HAVE_FLASH = False
 try:
-    import flash_attn
     HAVE_FLASH = True
 except ImportError:
     print("Flash attention not available")
-
-
 
 
 class LLMInput(BaseModel):
@@ -104,9 +101,7 @@ class LLModel(Model):
                 quantize=quantize,
                 peft_base_model=peft_base_model,
             )
-            self.generation_config = self.create_default_generation_config(
-                is_debater=is_debater, generation_params=self.generation_params
-            )
+            self.generation_config = self.create_default_generation_config(is_debater=is_debater, generation_params=self.generation_params)
 
             if not nucleus:
                 self.generation_config.num_beams = 2
@@ -160,9 +155,7 @@ class LLModel(Model):
         return GenerationConfig(**config_terms)
 
     @classmethod
-    def instantiate_tokenizer(
-        self, file_path: str, requires_token: bool = False
-    ) -> tuple[AutoTokenizer, AutoModelForCausalLM]:
+    def instantiate_tokenizer(self, file_path: str, requires_token: bool = False) -> tuple[AutoTokenizer, AutoModelForCausalLM]:
         tokenizer = AutoTokenizer.from_pretrained(
             file_path,
             token=os.getenv("META_ACCESS_TOKEN") if requires_token else None,
@@ -197,7 +190,7 @@ class LLModel(Model):
             quantize = False
             print("CUDA not available, disabling quantization")
             if torch.backends.mps.is_available():
-                device_map = {"": "mps"} # Prevents trl from failing on MPS
+                device_map = {"": "mps"}  # Prevents trl from failing on MPS
 
         model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=peft_base_model or file_path,
@@ -226,18 +219,14 @@ class LLModel(Model):
     ) -> tuple[AutoTokenizer, AutoModelForCausalLM]:
         """Constructs the tokenizer and huggingface model at the specified filepath"""
         tokenizer = LLModel.instantiate_tokenizer(file_path=tokenizer_file_path or file_path, requires_token=requires_token)
-        hf_model = LLModel.instantiate_hf_model(
-            file_path=file_path, requires_token=requires_token, quantize=quantize, peft_base_model=peft_base_model
-        )
+        hf_model = LLModel.instantiate_hf_model(file_path=file_path, requires_token=requires_token, quantize=quantize, peft_base_model=peft_base_model)
         return tokenizer, hf_model
 
     @classmethod
     def generate_llm_input_from_model_inputs(cls, input_list: list[ModelInput], extra_suffix: str = "") -> LLMInput:
         """Converts a ModelInput into the LLMInput that's expected by the model"""
         return LLMInput(
-            instruction="\n".join(
-                model_input.content for model_input in filter(lambda x: x.role == RoleType.SYSTEM, input_list)
-            ),
+            instruction="\n".join(model_input.content for model_input in filter(lambda x: x.role == RoleType.SYSTEM, input_list)),
             input="\n".join(model_input.content for model_input in filter(lambda x: x.role != RoleType.SYSTEM, input_list)),
             extra_suffix=extra_suffix,
         )
@@ -272,7 +261,7 @@ class LLModel(Model):
                 chat_template=tokenizer.chat_template,
             )
             return output
-        except Exception as e:
+        except Exception:
             return LLModel.generate_input_str(
                 llm_input=LLMInput(
                     instruction=system,
@@ -283,16 +272,9 @@ class LLModel(Model):
                 instruction_suffix=cls.INSTRUCTION_SUFFIX,
             )
 
-    def generate_input_strs(
-        self, inputs: list[list[ModelInput]], speech_structure: SpeechStructure = SpeechStructure.OPEN_ENDED
-    ) -> list[str]:
+    def generate_input_strs(self, inputs: list[list[ModelInput]], speech_structure: SpeechStructure = SpeechStructure.OPEN_ENDED) -> list[str]:
         """Converts a list of model inputs into a list of strings that can be tokenized"""
-        return [
-            LLModel.convert_to_input_string(
-                input_list=input_list, tokenizer=self.tokenizer, speech_structure=speech_structure
-            )
-            for input_list in inputs
-        ]
+        return [LLModel.convert_to_input_string(input_list=input_list, tokenizer=self.tokenizer, speech_structure=speech_structure) for input_list in inputs]
 
     @timer("llm inference")
     @torch.inference_mode()
@@ -350,9 +332,7 @@ class LLModel(Model):
             sequences = []
             logits = []
             input_lengths = []
-            minibatches = [
-                input_strs[i : i + self.max_mini_batch_size] for i in range(0, len(input_strs), self.max_mini_batch_size)
-            ]
+            minibatches = [input_strs[i : i + self.max_mini_batch_size] for i in range(0, len(input_strs), self.max_mini_batch_size)]
             for minibatch in minibatches:
                 inputs = self.tokenizer(minibatch, return_tensors="pt", padding=True).to(device)
                 outputs = self.model.generate(**inputs, generation_config=create_new_generation_config())
@@ -398,9 +378,7 @@ class LLModel(Model):
                 normalized_a_score, normalized_b_score = normalize_log_probs(a_score, b_score)
                 decoded_outputs.append(
                     ModelResponse(
-                        decision=(
-                            constants.DEFAULT_DEBATER_A_NAME if a_score > b_score else constants.DEFAULT_DEBATER_B_NAME
-                        ),
+                        decision=(constants.DEFAULT_DEBATER_A_NAME if a_score > b_score else constants.DEFAULT_DEBATER_B_NAME),
                         probabilistic_decision={
                             constants.DEFAULT_DEBATER_A_NAME: normalized_a_score,
                             constants.DEFAULT_DEBATER_B_NAME: normalized_b_score,
@@ -418,11 +396,11 @@ class LLModel(Model):
         """Generates a deepcopy of this model"""
         copy = LLModel(
             alias=alias,
-            is_debater=self.is_debater if is_debater == None else is_debater,
+            is_debater=self.is_debater if is_debater is None else is_debater,
             nucleus=nucleus,
             generation_params=self.generation_params,
         )
-        copy.is_debater = self.is_debater if is_debater == None else is_debater
+        copy.is_debater = self.is_debater if is_debater is None else is_debater
         copy.tokenizer = self.tokenizer
         copy.model = self.model
         copy.generation_config = self.generation_config
@@ -467,11 +445,11 @@ class LlamaModel(LLModel):
         """Generates a deepcopy of this model"""
         copy = LlamaModel(
             alias=alias,
-            is_debater=self.is_debater if is_debater == None else is_debater,
+            is_debater=self.is_debater if is_debater is None else is_debater,
             nucleus=nucleus,
             generation_params=self.generation_params,
         )
-        copy.is_debater = self.is_debater if is_debater == None else is_debater
+        copy.is_debater = self.is_debater if is_debater is None else is_debater
         copy.tokenizer = self.tokenizer
         copy.model = self.model
         copy.generation_config = self.generation_config
@@ -517,11 +495,11 @@ class MistralModel(LLModel):
         """Generates a deepcopy of this model"""
         copy = MistralModel(
             alias=alias,
-            is_debater=self.is_debater if is_debater == None else is_debater,
+            is_debater=self.is_debater if is_debater is None else is_debater,
             nucleus=nucleus,
             generation_params=self.generation_params,
         )
-        copy.is_debater = self.is_debater if is_debater == None else is_debater
+        copy.is_debater = self.is_debater if is_debater is None else is_debater
         copy.tokenizer = self.tokenizer
         copy.model = self.model
         copy.generation_config = self.generation_config
@@ -566,23 +544,19 @@ class Llama3Model(LLModel):
         """Generates a deepcopy of this model"""
         copy = Llama3Model(
             alias=alias,
-            is_debater=self.is_debater if is_debater == None else is_debater,
+            is_debater=self.is_debater if is_debater is None else is_debater,
             nucleus=nucleus,
             generation_params=self.generation_params,
         )
-        copy.is_debater = self.is_debater if is_debater == None else is_debater
+        copy.is_debater = self.is_debater if is_debater is None else is_debater
         copy.tokenizer = self.tokenizer
         copy.model = self.model
         copy.generation_config = self.generation_config
         return copy
 
-    def create_default_generation_config(
-        self, is_debater: bool = True, generation_params: GenerationParams = GenerationParams()
-    ) -> GenerationConfig:
+    def create_default_generation_config(self, is_debater: bool = True, generation_params: GenerationParams = GenerationParams()) -> GenerationConfig:
         """Creates a default generation config so that the model can generate text"""
-        generation_config = super().create_default_generation_config(
-            is_debater=is_debater, generation_params=generation_params
-        )
+        generation_config = super().create_default_generation_config(is_debater=is_debater, generation_params=generation_params)
         generation_config.eos_token_id = [self.tokenizer.eos_token_id, self.tokenizer.convert_tokens_to_ids("<|eot_id|>")]
         return generation_config
 
@@ -611,7 +585,7 @@ class StubLLModel(LLModel):
         """Generates a deepcopy of this model"""
         return StubLLModel(
             alias=alias,
-            is_debater=self.is_debater if is_debater == None else is_debater,
+            is_debater=self.is_debater if is_debater is None else is_debater,
             nucleus=nucleus,
             generation_params=self.generation_params,
         )
@@ -663,9 +637,7 @@ class LLModuleWithLinearProbe(nn.Module):
             for j in range(batch_size):
                 hidden_states[j].append(layer[j, -1, :])
 
-        input_vecs = torch.stack(
-            [torch.cat([hidden_states[i][idx] for idx in self.linear_idxs], dim=0) for i in range(batch_size)]
-        )
+        input_vecs = torch.stack([torch.cat([hidden_states[i][idx] for idx in self.linear_idxs], dim=0) for i in range(batch_size)])
 
         unnormalized_outputs = self.probe(input_vecs.float())
         # outputs = self.softmax(unnormalized_outputs)
@@ -741,7 +713,7 @@ class TokenizerStub:
         if not isinstance(input_string, str) or not isinstance(input_string, list):
             return input_string
 
-        length = len(input_string)
+        len(input_string)
         if isinstance(input_string, str):
             input_string = [input_string]
         input_ids = self(input_string).input_ids
@@ -755,10 +727,7 @@ class TokenizerStub:
             sequence_length = tokens.shape[0]
         else:
             batch_size, sequence_length = tokens.shape
-        outputs = [
-            " ".join(["".join(random.choices(self.alphabet, k=random.randrange(1, 8))) for i in range(sequence_length)])
-            for _ in range(batch_size)
-        ]
+        outputs = [" ".join(["".join(random.choices(self.alphabet, k=random.randrange(1, 8))) for i in range(sequence_length)]) for _ in range(batch_size)]
         if len(outputs) == 1:
             return outputs[0]
         else:

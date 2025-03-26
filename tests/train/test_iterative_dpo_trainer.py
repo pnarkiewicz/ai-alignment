@@ -1,10 +1,12 @@
-import pytest
 import tempfile
-from train.train_utils import TrainUtils
+
+import pytest
+
 from models.deterministic_model import DeterministicModel
+from train.train_utils import TrainUtils
 
 CONFIG_YAML = """
-TestDeterministic: 
+TestDeterministic:
     model_name: stub_model
     target: debater
     llm_type: stub_llm
@@ -25,7 +27,7 @@ TestDeterministic:
         logging_steps: 1
         output_dir: /fake/file/path
     dataset:
-        dataset_type: quality 
+        dataset_type: quality
 """
 
 

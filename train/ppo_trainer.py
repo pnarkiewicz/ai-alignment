@@ -1,38 +1,30 @@
 from __future__ import annotations
 
-from data import DataRow, RawDataset, SplitType
-from debate import Debater, DebateRound, Judge, QuestionMetadata
-from models import ArbitraryAttributeModel, Llama3Model, OpenAIModel, OfflineModel, Model, RandomModel, SpeechStructure, StubLLModel
-from prompts import Prompt, PromptConfig, PromptLoadingConfig, PromptParser
-from train.impl import LlamaModelWithGradientCheckpointing, VerbosePPOTrainer
-from train.row_converter import RowConverter
-from train.train_utils import TrainUtils, TrainingConfig, TrainingTarget
-from utils import logger_utils, timer, get_device
-import utils.constants as constants
+import traceback
+from typing import Optional
 
-from datasets import Dataset
-from peft import LoraConfig, prepare_model_for_kbit_training, get_peft_model
+import torch
+import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, GenerationConfig, LlamaModel
 from trl import PPOConfig, PPOTrainer
-import torch.nn.functional as F
-import torch
 
-from typing import Optional
-import traceback
+from data import RawDataset, SplitType
+from debate import Debater, DebateRound, Judge, QuestionMetadata
+from models import OfflineModel, OpenAIModel
+from prompts import PromptConfig, PromptParser
+from train.impl import LlamaModelWithGradientCheckpointing, VerbosePPOTrainer
+from train.train_utils import TrainingConfig, TrainUtils
+from utils import get_device, logger_utils, timer
+import utils.constants as constants
 
 try:
-    import bitsandbytes as bnb
+    pass
 except:
     print("Unable to import bitsandbytes")
 
 try:
-    from utils.flash_attn_utils import (
-        replace_attn_with_flash_attn,
-        upcast_layer_for_flash_attention,
-    )
-
     FLASH_ATTENTION_AVAILABLE = True
-except ImportError as e:
+except ImportError:
     print("Running without flash attention")
     FLASH_ATTENTION_AVAILABLE = False
 
@@ -93,9 +85,7 @@ class PPOTrainerWrapper:
     DEFAULT_DEBATER_ALIAS = "default-debater"
     DEFAULT_JUDGE_ALIAS = "openai-judge"
 
-    def __init__(
-        self, ppo_trainer: PPOTrainer, config: TrainingConfig, dataset: RawDataset, ref_model: AutoModelForCausalLM
-    ):
+    def __init__(self, ppo_trainer: PPOTrainer, config: TrainingConfig, dataset: RawDataset, ref_model: AutoModelForCausalLM):
         """
         Class for training a model using Proximate Policy Optimization. In order to keep the
         interface the same as the one used by the DPOTrainer and SFTTrainer, we construct a
@@ -153,9 +143,7 @@ class PPOTrainerWrapper:
     @timer("generate batch samples")
     def get_batch_samples(self, start_idx: int, ppo_stats: PPOStats) -> tuple[list[str], list[str], list[float]]:
         samples = []
-        for i in range(
-            self.config.training_hyperparameters.per_device_train_batch_size
-        ):  # TODO: change this when we do multi-turn
+        for i in range(self.config.training_hyperparameters.per_device_train_batch_size):  # TODO: change this when we do multi-turn
             new_samples = self.generate_one_round_samples(idx=start_idx + i, ppo_stats=ppo_stats)
             samples.extend(new_samples)
 
@@ -167,9 +155,7 @@ class PPOTrainerWrapper:
     def train(self, save_frequency: int = 10):
         ppo_stats = PPOStats()
         for i in range(self.config.training_hyperparameters.steps):
-            self.train_single_batch(
-                start_idx=(i * self.config.training_hyperparameters.per_device_train_batch_size), ppo_stats=ppo_stats
-            )
+            self.train_single_batch(start_idx=(i * self.config.training_hyperparameters.per_device_train_batch_size), ppo_stats=ppo_stats)
 
             if i > 0 and i % save_frequency == 0:
                 self.save_model(checkpoint=i)
@@ -186,7 +172,7 @@ class PPOTrainerWrapper:
 
         window = self.config.training_hyperparameters.per_device_train_batch_size // 2
         batch_idx = start_idx // self.config.training_hyperparameters.per_device_train_batch_size
-        overall = ppo_stats.get_scores(window=window)
+        ppo_stats.get_scores(window=window)
 
         if device.type != "cuda":
             print("Not using cuda, might fail")
@@ -308,7 +294,6 @@ class PPOTrainerWrapper:
         background_text = example.background_text
         title = example.story_title
         correct_index = example.correct_index
-        speeches = example.speeches
 
         if idx < 8:
             self.logger.warn(
@@ -418,9 +403,7 @@ class PPOTrainerWrapper:
             lambda x: x.speaker == expected_speaker,
             judge.transcripts[0].speeches,
         ):
-            samples.append(
-                (speech.supplemental.prompt_tokens, speech.supplemental.response_tokens, convert_reward(summary, speech))
-            )
+            samples.append((speech.supplemental.prompt_tokens, speech.supplemental.response_tokens, convert_reward(summary, speech)))
             add_to_ppo_stats(summary, speech)
 
         # TODO: delete this
@@ -498,9 +481,7 @@ class PPOTrainerWrapper:
         lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
         ppo_trainer = PPOTrainerWrapper(
-            ppo_trainer=VerbosePPOTrainer(
-                model=model, config=ppo_config, tokenizer=tokenizer, optimizer=optimizer, lr_scheduler=lr_scheduler
-            ),
+            ppo_trainer=VerbosePPOTrainer(model=model, config=ppo_config, tokenizer=tokenizer, optimizer=optimizer, lr_scheduler=lr_scheduler),
             config=config,
             dataset=raw_dataset,
             ref_model=reference_model,

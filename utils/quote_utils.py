@@ -1,11 +1,11 @@
-import utils.logger_utils as logger_utils
-import utils.constants as constants
-
 from difflib import SequenceMatcher
-from typing import Optional
 import re
+from typing import Optional
 
-import fuzzysearch  #  potentially delete
+import fuzzysearch  # potentially delete
+
+import utils.constants as constants
+import utils.logger_utils as logger_utils
 
 
 def simplify_text(text: str):
@@ -20,7 +20,7 @@ def simplify_text(text: str):
         .replace(constants.UNQUOTE_TAG, "")
         .lower()
     )
-    return re.sub("\s+", " ", replaced_text)
+    return re.sub("\\s+", " ", replaced_text)
 
 
 def split_text(text: str):
@@ -43,11 +43,9 @@ def validate_quote(quote: str, background_text: str, prevalidated_speech: Option
         Returns true if the quote is actually in the background text.
     """
     if prevalidated_speech:
-        if re.search(f"{constants.QUOTE_TAG}\s*{re.escape(quote)}\s*{constants.UNQUOTE_TAG}", prevalidated_speech):
+        if re.search(f"{constants.QUOTE_TAG}\\s*{re.escape(quote)}\\s*{constants.UNQUOTE_TAG}", prevalidated_speech):
             return True
-        elif re.search(
-            f"{constants.INVALID_QUOTE_TAG}\s*{re.escape(quote)}\s*{constants.INVALID_UNQUOTE_TAG}", prevalidated_speech
-        ):
+        elif re.search(f"{constants.INVALID_QUOTE_TAG}\\s*{re.escape(quote)}\\s*{constants.INVALID_UNQUOTE_TAG}", prevalidated_speech):
             return False
     return quote in background_text or simplify_text(quote) in simplify_text(background_text)
 
@@ -64,7 +62,6 @@ def clean_up_quotes(speech_content: str) -> list[str]:
     (empty quotes, unterminated quotes, unpaired quotes)"""
 
     # cleans up duplicate tags and empty quotes
-    previous = speech_content
     replaced_text = speech_content
     replaced_text = re.sub(f"({constants.QUOTE_TAG}{constants.UNQUOTE_TAG})+", "", replaced_text, flags=re.DOTALL)
     replaced_text = re.sub(f"{constants.QUOTE_TAG}{2,}", constants.QUOTE_TAG, replaced_text, flags=re.DOTALL)
@@ -94,9 +91,7 @@ def clean_up_quotes(speech_content: str) -> list[str]:
     return replaced_text
 
 
-def find_best_match(
-    quote: str, background_text: str, early_stopping_threshold: int = 0.9, min_threshold: int = 0.8
-) -> Optional[str]:
+def find_best_match(quote: str, background_text: str, early_stopping_threshold: int = 0.9, min_threshold: int = 0.8) -> Optional[str]:
     """
     Identifies whether there is a close match to a quote inside the background text.
 
