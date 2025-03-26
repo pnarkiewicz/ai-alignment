@@ -1,6 +1,7 @@
 from data import DatasetConfig, loader_utils, RawDataset
 from debate import ScratchpadConfig, SpeechFormatStructure
 from models import LLMType, LLModel, ModelStub, TokenizerStub
+from models.arbitrary_attribute_model import ArbitraryAttributeModel
 from models.deterministic_model import DeterministicModel
 from models.openai_model import OpenAIModel
 from models.random_model import RandomModel
@@ -303,6 +304,13 @@ class TrainUtils:
         DEFAULT_JUDGE_ALIAS = "default-judge"
         supplemental = config.training_hyperparameters.supplemental or {}
         judge_type = supplemental.get("judge_type", "openai")
+
+        if judge_type == "arbitrary_attribute":
+            return ArbitraryAttributeModel(
+                alias=DEFAULT_JUDGE_ALIAS,
+                is_debater=False,
+                feature=supplemental.get("feature", "l"),
+            )
 
         if (
             judge_type == "deterministic"

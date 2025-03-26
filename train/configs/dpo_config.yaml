@@ -1,5 +1,5 @@
 Local Train:
-    model_name: /path/to/v0-llama2-100k # download from https://huggingface.co/delphi-suite/v0-llama2-100k 
+    model_name: path/to/v0-llama2-100k # download from https://huggingface.co/delphi-suite/v0-llama2-100k 
     target: debater
     llm_type: llama
     max_length: 4096
@@ -22,9 +22,11 @@ Local Train:
             reward_type: prob
             loss_type: bon
             multiplier: 7
+            judge_type: arbitrary_attribute
+            judge_feature: "l"
     logging_and_saving_config:
         logging_steps: 5
-        output_dir: /path/to/save/model
+        output_dir: path/to/save/model
     dataset:
         dataset_type: quality
         split_type: train
@@ -88,28 +90,6 @@ Test - Iterative:
         output_dir: /fake/file/path
     dataset:
         dataset_type: quality
-TestDeterministic: 
-    model_name: stub_model
-    target: debater
-    llm_type: stub_llm
-    training_hyperparameters:
-        num_train_epochs: 2
-        per_device_train_batch_size: 1
-        gradient_accumulation_steps: 8
-        optim: paged_adamw_32bit
-        learning_rate: 2e-6
-        max_grad_norm: 0.3
-        warmup_ratio: 0.03
-        lr_scheduler_type: constant
-        peft_type: lora
-        supplemental:
-            judge_type: deterministic
-            judge_fixed_output: "Debater A wins"
-    logging_and_saving_config:
-        logging_steps: 1
-        output_dir: /fake/file/path # TODO
-    dataset:
-        dataset_type: quality # CHECK Is it working
 Iterative - Experiment:
     model_name: /vast/spa9663/models/trained_models/llama-3-mega-merged
     target: debater

@@ -9,7 +9,6 @@ from debate import BestOfNDebater, Debater, DebateRound, Judge, QuestionMetadata
 from models import (
     BestOfNConfig,
     GenerationParams,
-    OpenAIModel,
     RandomModel,
     ArbitraryAttributeModel,
 )
@@ -68,20 +67,6 @@ class IterativeDirectPreferenceTrainer:
             self.model = upcast_layer_for_flash_attention(self.model, torch.bfloat16)
 
         self.peft_config = TrainUtils.get_peft_config(config=config)
-
-        # TODO: parameterize this
-        # 'l' is a nice feature to count: ~4% letter frequency in English (baseline) https://en.wikipedia.org/wiki/Letter_frequency
-        # many popular tokens have both 1 and 2 'l's, so the model often first finds 'l' and then it uses 'll'
-        self.judge_model = ArbitraryAttributeModel(
-            alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS,
-            is_debater=False,
-            feature="l",
-        )
-
-        # self.judge_model = OpenAIModel(alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS, is_debater=False)
-        self.random_judge_model = RandomModel(
-            alias=IterativeDirectPreferenceTrainer.DEFAULT_JUDGE_ALIAS, is_debater=False
-        )
 
         reward_type = RewardType.LOG_PROB
         if (
