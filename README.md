@@ -48,6 +48,14 @@ TODO:
 ## Train - Przewodnik
 * Zmienna `local` w configu odpowiada za testy. Nie jest to najlepsza nazwa i powinna być zmieniona na test, ale nie chciałem zmieniać od razu całego kodu.
 
+## Tests
+**pytest** could be particularly important when one's implement things with LLMs. One of most productive and error-prune way of "vibe-coding" is ask code-assistant for tests at the beggining.
+
+Run all tests using:
+```bash
+pytest
+```
+
 ## Setup
 
 Note: Given the current state of this project, this README will just give an overview of the code structure. It is not an introduction to the overall effort.

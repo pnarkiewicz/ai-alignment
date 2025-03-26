@@ -12,6 +12,7 @@ openai>=1.51.0
 pandas==1.5.3
 peft==0.5.0
 pydantic>=2.0.0
+pytest==8.3.5
 python-dotenv
 pyyaml
 PyYAML
