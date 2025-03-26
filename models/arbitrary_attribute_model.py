@@ -32,7 +32,6 @@ class ArbitraryAttributeModel(Model):
         if is_debater:
             raise Exception("ArbitraryAttributeModel only supports judge mode")
         self.feature = feature or "quote"  # TODO: change
-        wandb.init(project="huggingface")  # Remove initialization from here
 
     def predict(
         self,
