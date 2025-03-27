@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from enum import Enum
-import json
-import random
-from typing import Optional
-
 from data import DataRow, RawDataset, SplitType
 from models.model import BestOfNConfig, Model, ModelInput, ModelResponse
-from utils import input_utils, InputType
+from utils import InputType, input_utils
 import utils.constants as constants
+
+from abc import ABC, abstractmethod
+from enum import Enum
+from typing import Optional
+import json
+import random
 
 
 class OfflineDataFormatParser(ABC):
@@ -133,7 +133,10 @@ class OfflineModel(Model):
         """Generates a list of texts in response to the given input."""
         speech = [s[self.speech_idx] for s in self.speeches]
         self.speech_idx += 1
-        return [ModelResponse(speech=speech[i], prompt="\n".join(model_input.content for model_input in inputs[i])) for i in range(len(speech))]
+        return [
+            ModelResponse(speech=speech[i], prompt="\n".join(model_input.content for model_input in inputs[i]))
+            for i in range(len(speech))
+        ]
 
     def copy(self, alias: str, is_debater: Optional[bool] = None, **kwargs) -> OfflineModel:
         """Generates a deepcopy of this model"""
@@ -186,7 +189,10 @@ class BestOfNOfflineModel(Model):
         if self.use_opponent_speeches:
             self.speech_idx += 1
         self.use_opponent_speeches = not self.use_opponent_speeches
-        return [ModelResponse(speech=speech[i], prompt="\n".join(model_input.content for model_input in inputs[i])) for i in range(len(speech))]
+        return [
+            ModelResponse(speech=speech[i], prompt="\n".join(model_input.content for model_input in inputs[i]))
+            for i in range(len(speech))
+        ]
 
     def copy(self, alias: str, is_debater: Optional[bool] = None, **kwargs) -> OfflineModel:
         """Generates a deepcopy of this model"""
@@ -234,7 +240,11 @@ class OfflineModelHelper:
         if not self.data:
             raise Exception(f"No data could be found at {InputType.JSON.location}/{file_path_prefix}")
 
-        self.data_format = OfflineDataFormat.EXPANDED if OfflineDataFormat.EXPANDED.get_parser().validate(self.data[0]) else OfflineDataFormat.ABBREVIATED
+        self.data_format = (
+            OfflineDataFormat.EXPANDED
+            if OfflineDataFormat.EXPANDED.get_parser().validate(self.data[0])
+            else OfflineDataFormat.ABBREVIATED
+        )
         self.parser = self.data_format.get_parser()
 
         self.prune_data()
@@ -388,10 +398,16 @@ class OfflineModelHelper:
         debater_name_to_use = (
             debater_name
             if not is_flipped or constants.DEFAULT_DEBATER_A_NAME not in all_speakers
-            else (constants.DEFAULT_DEBATER_A_NAME if debater_name == constants.DEFAULT_DEBATER_B_NAME else constants.DEFAULT_DEBATER_B_NAME)
+            else (
+                constants.DEFAULT_DEBATER_A_NAME
+                if debater_name == constants.DEFAULT_DEBATER_B_NAME
+                else constants.DEFAULT_DEBATER_B_NAME
+            )
         )
 
-        relevant_speeches = [speech for speech in filter(lambda x: self.parser.get_speaker_name(x) == debater_name_to_use, all_speeches)]
+        relevant_speeches = [
+            speech for speech in filter(lambda x: self.parser.get_speaker_name(x) == debater_name_to_use, all_speeches)
+        ]
 
         assert len(relevant_speeches) > 0, f"Missing speeches for {debater_name_to_use} at index {idx}"
 
@@ -411,7 +427,12 @@ class OfflineModelHelper:
                     selected_speeches.append(best_option)
                 contender_speeches.append([c[0] for c in contenders])
                 if "bon_opposing_model_responses" in supplemental:
-                    opponent_speeches.append([resp["speech"] for resp in filter(lambda x: x is not None, supplemental["bon_opposing_model_responses"])])
+                    opponent_speeches.append(
+                        [
+                            resp["speech"]
+                            for resp in filter(lambda x: x is not None, supplemental["bon_opposing_model_responses"])
+                        ]
+                    )
         else:
             selected_speeches = [self.parser.get_text(speech) for speech in relevant_speeches]
 

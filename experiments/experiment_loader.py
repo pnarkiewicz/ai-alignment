@@ -1,11 +1,3 @@
-from enum import auto, Enum
-import itertools
-from typing import Optional
-
-from pydantic import BaseModel, field_validator, model_validator
-import yaml
-
-from data import DatasetConfig, loader_utils, RawDataset, SplitType
 from debate import (
     AgentConfig,
     BestOfNDebater,
@@ -18,10 +10,18 @@ from debate import (
     QuestionMetadata,
     SpeechFormatStructure,
 )
+from data import DatasetConfig, loader_utils, RawDataset, SplitType
 from models import Model, ModelSettings, ModelType, ModelUtils, OfflineModelHelper
 from prompts import PromptConfig, PromptLoadingConfig, PromptParser
-from utils import input_utils, InputType, logger_utils
+from utils import InputType, input_utils, logger_utils
 import utils.constants as constants
+
+from pydantic import BaseModel, model_validator, field_validator
+import yaml
+
+from enum import auto, Enum
+from typing import Optional
+import itertools
 
 
 class AgentsConfig(BaseModel):
@@ -69,7 +69,9 @@ class TournamentConfig(BaseModel):
             TournamentType.CUSTOM,
             TournamentType.CAPPED_ROUND_ROBIN,
         ]:
-            raise ValueError("One cannot set custom matchups if one does not select the custom or capped round robin tournament type")
+            raise ValueError(
+                "One cannot set custom matchups if one does not select the custom or capped round robin tournament type"
+            )
         elif not config.custom_matchups and config.tournament_type == TournamentType.CUSTOM:
             raise ValueError("One cannot set the custom tournament type without setting custom matchups")
         elif config.replication_file_paths and config.tournament_type != TournamentType.REPLICATION:
@@ -150,10 +152,16 @@ class ExperimentLoader:
             for metadata in debate_round.metadata:
                 metadata_list.append(metadata)
 
-            first_debater_model = debate_round.first_debater.model if not first_debater_model else first_debater_model.merge(debate_round.first_debater.model)
+            first_debater_model = (
+                debate_round.first_debater.model
+                if not first_debater_model
+                else first_debater_model.merge(debate_round.first_debater.model)
+            )
 
             second_debater_model = (
-                debate_round.second_debater.model if not second_debater_model else second_debater_model.merge(debate_round.second_debater.model)
+                debate_round.second_debater.model
+                if not second_debater_model
+                else second_debater_model.merge(debate_round.second_debater.model)
             )
 
             judge_model = debate_round.judge.model if not judge_model else judge_model.merge(debate_round.judge.model)
@@ -239,7 +247,9 @@ class ExperimentLoader:
                 is_debater=True,
             )
             if debater_one_model_id not in model_cache
-            else model_cache[debater_one_model_id].copy(alias=experiment.agents.debaters[debater_idxs[0]].model_settings.alias, is_debater=True)
+            else model_cache[debater_one_model_id].copy(
+                alias=experiment.agents.debaters[debater_idxs[0]].model_settings.alias, is_debater=True
+            )
         )
         if debater_one_model:
             model_cache[debater_one_model_id] = debater_one_model
@@ -275,10 +285,15 @@ class ExperimentLoader:
         offline_model_helpers = None
         first_offline_file_path = experiment.agents.debaters[debater_idxs[0]].model_settings.offline_file_path
         second_offline_file_path = experiment.agents.debaters[debater_idxs[1]].model_settings.offline_file_path
-        if first_offline_file_path or second_offline_file_path or (experiment.previous_run and experiment.previous_run.replicate_topics):
+        if (
+            first_offline_file_path
+            or second_offline_file_path
+            or (experiment.previous_run and experiment.previous_run.replicate_topics)
+        ):
             file_paths = [first_offline_file_path, second_offline_file_path] + (
                 experiment.previous_run.file_path
-                if experiment.previous_run and (experiment.previous_run.replicate_topics or experiment.previous_run.exclude_topics)
+                if experiment.previous_run
+                and (experiment.previous_run.replicate_topics or experiment.previous_run.exclude_topics)
                 else []
             )
             offline_model_helpers = []
@@ -428,7 +443,9 @@ class ExperimentLoader:
                     use_scratchpad=experiment.agents.debaters[debater_idxs[0]].scratchpad.use_scratchpad,
                 ),
                 scratchpad_config=experiment.agents.debaters[debater_idxs[0]].scratchpad,
-                quotes_require_validation=experiment.agents.debaters[debater_idxs[0]].model_settings.require_quote_validation,
+                quotes_require_validation=experiment.agents.debaters[
+                    debater_idxs[0]
+                ].model_settings.require_quote_validation,
             )
 
             debater_b = Debater(
@@ -442,7 +459,9 @@ class ExperimentLoader:
                     use_scratchpad=experiment.agents.debaters[debater_idxs[1]].scratchpad.use_scratchpad,
                 ),
                 scratchpad_config=experiment.agents.debaters[debater_idxs[1]].scratchpad,
-                quotes_require_validation=experiment.agents.debaters[debater_idxs[1]].model_settings.require_quote_validation,
+                quotes_require_validation=experiment.agents.debaters[
+                    debater_idxs[1]
+                ].model_settings.require_quote_validation,
             )
 
             judge = Judge(
@@ -487,7 +506,9 @@ class ExperimentLoader:
                     num_speeches=experiment.num_speeches,
                     use_scratchpad=experiment.agents.debaters[debater_idxs[1]].scratchpad.use_scratchpad,
                 ),
-                quotes_require_validation=experiment.agents.debaters[debater_idxs[1]].model_settings.require_quote_validation,
+                quotes_require_validation=experiment.agents.debaters[
+                    debater_idxs[1]
+                ].model_settings.require_quote_validation,
             )
 
             flipped_debater_b = Debater(
@@ -501,7 +522,9 @@ class ExperimentLoader:
                     num_speeches=experiment.num_speeches,
                     use_scratchpad=experiment.agents.debaters[debater_idxs[0]].scratchpad.use_scratchpad,
                 ),
-                quotes_require_validation=experiment.agents.debaters[debater_idxs[0]].model_settings.require_quote_validation,
+                quotes_require_validation=experiment.agents.debaters[
+                    debater_idxs[0]
+                ].model_settings.require_quote_validation,
             )
 
             flipped_judge = Judge(
@@ -540,7 +563,9 @@ class ExperimentLoader:
                         alias=experiment.agents.debaters[debater_idxs[0]].model_settings.alias,
                         debater_name=debate_round.second_debater.name,
                         idx=i,
-                        positions=(position, opponent_position) if not experiment.speech_structure.flip_position_order else (opponent_position, position),
+                        positions=(position, opponent_position)
+                        if not experiment.speech_structure.flip_position_order
+                        else (opponent_position, position),
                         best_of_n_config=experiment.agents.debaters[debater_idxs[0]].best_of_n,
                     )
                 if (
@@ -565,10 +590,16 @@ class ExperimentLoader:
                         alias=experiment.agents.debaters[debater_idxs[1]].model_settings.alias,
                         debater_name=flipped_round.first_debater.name,
                         idx=i if not experiment.convert_to_double_consultancy else (i + 1),
-                        positions=(position, opponent_position) if not experiment.speech_structure.flip_position_order else (opponent_position, position),
+                        positions=(position, opponent_position)
+                        if not experiment.speech_structure.flip_position_order
+                        else (opponent_position, position),
                         best_of_n_config=experiment.agents.debaters[debater_idxs[1]].best_of_n,
                     )
-                if experiment.speech_structure.flip_position_order and not include_first_round and not first_offline_file_path:
+                if (
+                    experiment.speech_structure.flip_position_order
+                    and not include_first_round
+                    and not first_offline_file_path
+                ):
                     for metadata in flipped_round.metadata:
                         metadata.first_debater_correct = not metadata.first_debater_correct
 
@@ -696,11 +727,16 @@ class ExperimentLoader:
 
         if not experiment.agents:
             raise Exception("A judge must be defined")
-        if (not experiment.agents.debaters or len(experiment.agents.debaters) < 1) and experiment.tournament.tournament_type != TournamentType.REPLICATION:
+        if (
+            not experiment.agents.debaters or len(experiment.agents.debaters) < 1
+        ) and experiment.tournament.tournament_type != TournamentType.REPLICATION:
             raise Exception("At least 1 debater must be defined")
 
         default_start_idxs = [(0, count) for i in range(len(experiment.agents.debaters))]
-        if experiment.tournament.tournament_type == TournamentType.SELF_PLAY_ONLY or experiment.speech_structure.num_participants == 1:
+        if (
+            experiment.tournament.tournament_type == TournamentType.SELF_PLAY_ONLY
+            or experiment.speech_structure.num_participants == 1
+        ):
             return zip([(i, i) for i in range(len(experiment.agents.debaters))], default_start_idxs)
         elif experiment.tournament.tournament_type == TournamentType.ROUND_ROBIN:
             all_idxs = [i for i in range(len(experiment.agents.debaters))] if len(experiment.agents.debaters) > 1 else [0, 0]
@@ -718,7 +754,7 @@ class ExperimentLoader:
             section_length = dataset_length // len(experiment.agents.debaters)
             start_idxs = []
             current = 0
-            len(all_idxs) - 1
+            length = len(all_idxs) - 1
             for row in range(len(all_idxs) - 1):
                 for i in range(len(all_idxs) - row - 1):
                     section = (current + i) % len(all_idxs)
@@ -726,10 +762,7 @@ class ExperimentLoader:
                 current = (current + 2) % len(all_idxs)
 
             if experiment.tournament.custom_matchups:
-
-                def matchup_to_key_fn(x, y):
-                    return "_v_".join(sorted([str(x), str(y)]))
-
+                matchup_to_key_fn = lambda x, y: "_v_".join(sorted([str(x), str(y)]))
                 matchup_set = set([matchup_to_key_fn(a, b) for a, b in experiment.tournament.custom_matchups])
                 new_debater_idxs = []
                 new_start_idxs = []
@@ -798,7 +831,9 @@ class ExperimentLoader:
             raise Exception("Tournament type was not recognized")
 
     @classmethod
-    def generate_debate_rounds(cls, experiment_file_path: str, name: str, count: int = 1) -> tuple[list[DebateRound], ExperimentConfig]:
+    def generate_debate_rounds(
+        cls, experiment_file_path: str, name: str, count: int = 1
+    ) -> tuple[list[DebateRound], ExperimentConfig]:
         """
         Generates a list of debate rounds with the given configuration
 
@@ -824,7 +859,9 @@ class ExperimentLoader:
         all_rounds = []
         model_cache = {}
         offline_model_helper_cache = {}
-        for combination, (start_idx, count_to_use) in ExperimentLoader.get_debater_combinations(experiment=experiment, count=count, dataset=dataset):
+        for combination, (start_idx, count_to_use) in ExperimentLoader.get_debater_combinations(
+            experiment=experiment, count=count, dataset=dataset
+        ):
             rounds, model_cache, offline_model_helper_cache = ExperimentLoader.create_debate_rounds_for_combination(
                 experiment=experiment,
                 dataset=dataset,

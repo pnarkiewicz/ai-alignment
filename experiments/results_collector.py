@@ -1,24 +1,24 @@
-import json
-import math
-import os
-import re
-from typing import Any, Optional
-import uuid
+from debate import DebateRoundSummary, QuestionMetadata
+from experiments.experiment_loader import ExperimentConfig
+from experiments.quotes_collector import QuotesCollector
+from utils import InputType, input_utils, logger_utils
+import utils.constants as constants
 
+from pydantic import BaseModel
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel
+import seaborn as sns
 import scipy.optimize
 import scipy.stats
-import seaborn as sns
 
-from debate import DebateRoundSummary, QuestionMetadata
-from experiments.experiment_loader import ExperimentConfig
-from experiments.quotes_collector import QuotesCollector
-from utils import input_utils, InputType, logger_utils
-import utils.constants as constants
+from typing import Optional, Any
+import json
+import math
+import os
+import re
+import uuid
 
 
 class WinStats(BaseModel):
@@ -133,7 +133,7 @@ class ResultsCollector:
                     self.aliases.append(alias)
         self.aliases = sorted(
             self.aliases,
-            key=lambda x: (0, int(x)) if re.match("\\d+", str(x)) else (1, x),
+            key=lambda x: (0, int(x)) if re.match("\d+", str(x)) else (1, x),
         )
         self.num_debaters = len(self.aliases)
         self.previous_summary_count = len(self.summaries)
@@ -205,7 +205,9 @@ class ResultsCollector:
 
                 aggregated_matchups_to_stats[pair].matches += 1
                 first_debater_win_prob = (summary.first_debater_win_prob + self.summaries[i + 1].first_debater_win_prob) / 2
-                second_debater_win_prob = (summary.second_debater_win_prob + self.summaries[i + 1].second_debater_win_prob) / 2
+                second_debater_win_prob = (
+                    summary.second_debater_win_prob + self.summaries[i + 1].second_debater_win_prob
+                ) / 2
                 binary_correct = (summary.metadata.first_debater_correct and first_debater_win_prob > 0.5) or (
                     not summary.metadata.first_debater_correct and second_debater_win_prob < 0.5
                 )
@@ -286,8 +288,12 @@ class ResultsCollector:
                 and summary.first_debater_alias == self.summaries[i + 1].second_debater_alias
                 and summary.second_debater_alias == self.summaries[i + 1].first_debater_alias
             ):
-                agg_first_win_prob = (self.summaries[i].first_debater_win_prob + self.summaries[i + 1].first_debater_win_prob) / 2
-                agg_second_win_prob = (self.summaries[i].second_debater_win_prob + self.summaries[i + 1].second_debater_win_prob) / 2
+                agg_first_win_prob = (
+                    self.summaries[i].first_debater_win_prob + self.summaries[i + 1].first_debater_win_prob
+                ) / 2
+                agg_second_win_prob = (
+                    self.summaries[i].second_debater_win_prob + self.summaries[i + 1].second_debater_win_prob
+                ) / 2
                 agg_max_prob = max(agg_first_win_prob, agg_second_win_prob)
                 binary_correct = (summary.metadata.first_debater_correct and agg_first_win_prob > 0.5) or (
                     not summary.metadata.first_debater_correct and agg_second_win_prob < 0.5
@@ -309,7 +315,7 @@ class ResultsCollector:
         if self.experiment.flip and not self.is_offline and self.num_debaters > 1:
             agg_xs = [bottom for i, bottom in filter(lambda x: agg_buckets[x[0]][1] > 0, enumerate(bucket_bottoms[:-1]))]
             agg_ys = [wins / count for (wins, count) in filter(lambda x: x[1] > 0, agg_buckets)]
-            max([count for (_, count) in agg_buckets])
+            agg_max_count = max([count for (_, count) in agg_buckets])
             agg_sizes = [(count / max_count) * 100 for (_, count) in filter(lambda x: x[1] > 0, agg_buckets)]
             axs[2].scatter(agg_xs, agg_ys, sizes=agg_sizes, label="Aggregated")
 
@@ -476,7 +482,9 @@ class ResultsCollector:
             computed_win_rate_matrix.append([])
             for second in categories:
                 computed_win_rate = (
-                    debater_skills[first] / (debater_skills[first] + debater_skills[second]) if (debater_skills[first] + debater_skills[second]) > 0 else 0.5
+                    debater_skills[first] / (debater_skills[first] + debater_skills[second])
+                    if (debater_skills[first] + debater_skills[second]) > 0
+                    else 0.5
                 )
                 computed_win_rate_matrix[-1].append(computed_win_rate)
 
@@ -499,7 +507,8 @@ class ResultsCollector:
             eligible_summaries = [
                 s
                 for s in filter(
-                    lambda x: x.first_debater_alias in [alias_one, alias_two] and x.second_debater_alias in [alias_one, alias_two],
+                    lambda x: x.first_debater_alias in [alias_one, alias_two]
+                    and x.second_debater_alias in [alias_one, alias_two],
                     self.summaries,
                 )
             ]
@@ -565,7 +574,9 @@ class ResultsCollector:
         ax1.set_ylabel("Better Debater")
         ax1.set_title("Paired Significance Test")
 
-        sns.heatmap(np.flip(combined_win_rate_matrix, axis=0), annot=True, cmap=plt.cm.coolwarm.reversed(), cbar=False, ax=ax2)
+        sns.heatmap(
+            np.flip(combined_win_rate_matrix, axis=0), annot=True, cmap=plt.cm.coolwarm.reversed(), cbar=False, ax=ax2
+        )
         ax2.set_xticklabels([alias for alias in combined_win_rate_map])
         ax2.set_yticklabels(reversed([alias for alias in combined_win_rate_map]))
         ax2.set_xlabel("Worse Debater")
@@ -579,7 +590,11 @@ class ResultsCollector:
 
     def __graph_quotes(self, win_stats_dict: dict[str, WinStats]) -> dict[int, int]:
         def get_accuracy(results, name, key):
-            return results[name][key].number_of_valid_quotes / results[name][key].number_of_quotes if results[name][key].number_of_quotes > 0 else 0
+            return (
+                results[name][key].number_of_valid_quotes / results[name][key].number_of_quotes
+                if results[name][key].number_of_quotes > 0
+                else 0
+            )
 
         results = self.quotes_collector.get_results()
         all_categories = [constants.OVERALL, constants.WINNER, constants.LOSER, constants.CORRECT, constants.INCORRECT]
@@ -615,6 +630,7 @@ class ResultsCollector:
             for name in results:
                 quote_length_distributions[key][name] = []
                 quote_accuracy_cdf[key][name] = []
+                forward_count = 0
                 total_count = 0
                 total_accurate = 0
                 length = len(results[name][key].quote_length_to_accuracy)
@@ -626,7 +642,9 @@ class ResultsCollector:
                         quote_accuracy_cdf[key][name].append(total_accurate / max(total_count, 1))
                         quote_length_distributions[key][name].append(total_count)
                 quote_accuracy_cdf[key][name] = [elem for elem in reversed(quote_accuracy_cdf[key][name])]
-                quote_length_distributions[key][name] = [elem / max(total_count, 1) for elem in reversed(quote_length_distributions[key][name])]
+                quote_length_distributions[key][name] = [
+                    elem / max(total_count, 1) for elem in reversed(quote_length_distributions[key][name])
+                ]
 
         fig, axs = plt.subplots(3, 2, figsize=(12, 8))
         index = np.arange(len(results))
@@ -739,7 +757,7 @@ class ResultsCollector:
                 return debater.dict()
             return None
 
-        set([debater.model_settings.alias for debater in self.experiment.agents.debaters])
+        current_aliases = set([debater.model_settings.alias for debater in self.experiment.agents.debaters])
         preloaded_run_idx = uuid.uuid4()
         run_idx = uuid.uuid4()
         rows = []
@@ -762,9 +780,15 @@ class ResultsCollector:
                     second_debater_win_prob=summary.second_debater_win_prob,
                     first_debater_wins=summary.first_debater_wins,
                     second_debater_wins=not summary.first_debater_wins,
-                    correct_side_win_prob=summary.first_debater_win_prob if summary.metadata.first_debater_correct else summary.second_debater_win_prob,
-                    incorrect_side_win_prob=summary.first_debater_win_prob if not summary.metadata.first_debater_correct else summary.second_debater_win_prob,
-                    correct_side_wins=summary.first_debater_wins if summary.metadata.first_debater_correct else not summary.first_debater_wins,
+                    correct_side_win_prob=summary.first_debater_win_prob
+                    if summary.metadata.first_debater_correct
+                    else summary.second_debater_win_prob,
+                    incorrect_side_win_prob=summary.first_debater_win_prob
+                    if not summary.metadata.first_debater_correct
+                    else summary.second_debater_win_prob,
+                    correct_side_wins=summary.first_debater_wins
+                    if summary.metadata.first_debater_correct
+                    else not summary.first_debater_wins,
                     first_debater_speaks=summary.first_debater_speaks,
                     second_debater_speaks=summary.second_debater_speaks,
                 ).dict()
@@ -800,14 +824,18 @@ class ResultsCollector:
 
             plt.clf()
             judge_results = self.__graph_judge()
-            converted_judge_results = {key: {k: v.dict() for k, v in minigraph.items()} for key, minigraph in judge_results.items()}
+            converted_judge_results = {
+                key: {k: v.dict() for k, v in minigraph.items()} for key, minigraph in judge_results.items()
+            }
             all_stats.append(converted_judge_results)
             self.logger.info(judge_results)
 
             if self.quotes_collector:
                 plt.clf()
                 quote_results = self.__graph_quotes(win_stats_dict=win_results)
-                converted_quote_results = {key: {k: v.dict() for k, v in value.items()} for key, value in quote_results.items()}
+                converted_quote_results = {
+                    key: {k: v.dict() for k, v in value.items()} for key, value in quote_results.items()
+                }
                 all_stats.append(converted_quote_results)
                 self.logger.info(quote_results)
 
@@ -855,8 +883,12 @@ class ResultsCollector:
                         question=row["question"],
                     ),
                     transcript="",  # not needed
-                    winning_alias=str(row["first_debater_alias"]) if row["first_debater_wins"] else str(row["second_debater_alias"]),
-                    losing_alias=str(row["first_debater_alias"]) if not row["first_debater_wins"] else str(row["second_debater_alias"]),
+                    winning_alias=str(row["first_debater_alias"])
+                    if row["first_debater_wins"]
+                    else str(row["second_debater_alias"]),
+                    losing_alias=str(row["first_debater_alias"])
+                    if not row["first_debater_wins"]
+                    else str(row["second_debater_alias"]),
                     first_debater_alias=str(row["first_debater_alias"]),
                     second_debater_alias=str(row["second_debater_alias"]),
                     first_debater_wins=str(row["first_debater_wins"]),

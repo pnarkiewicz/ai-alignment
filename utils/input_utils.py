@@ -1,13 +1,13 @@
-from enum import Enum
-from io import StringIO
-import json
-import os
-import re
-from typing import Callable
+import utils.constants as constants
 
 import pandas as pd
 
-import utils.constants as constants
+from enum import Enum
+from io import StringIO
+from typing import Callable
+import json
+import os
+import re
 
 
 class InputType(Enum):
@@ -52,7 +52,7 @@ def read_file_texts(
     """
 
     def get_idxs_of_file(file_name: str) -> tuple[int, int]:
-        suffix_pattern = "_(\\d+)_(\\d+)\\." + input_type.extension
+        suffix_pattern = "_(\d+)_(\d+)\." + input_type.extension
         suffix = re.search(suffix_pattern, file_name)
         if suffix:
             return suffix.group(1), suffix.group(2)
@@ -66,13 +66,18 @@ def read_file_texts(
 
     def list_files_with_prefix(directory: str, prefix: str):
         files = os.listdir(directory)
-        matching_files = [f"{directory}/{file}" for file in filter(lambda x: x.startswith(prefix) and x.endswith(input_type.extension), files)]
+        matching_files = [
+            f"{directory}/{file}"
+            for file in filter(lambda x: x.startswith(prefix) and x.endswith(input_type.extension), files)
+        ]
         return sort_files_by_extension(matching_files)
 
     if isinstance(base_path, list):
         input_texts = []
         for path in base_path:
-            input_texts += read_file_texts(base_path=path, input_type=input_type, include_full_file_path=include_full_file_path)
+            input_texts += read_file_texts(
+                base_path=path, input_type=input_type, include_full_file_path=include_full_file_path
+            )
         return input_texts
 
     directory = input_type.location if "/" not in base_path else "/".join(base_path.split("/")[:-1])

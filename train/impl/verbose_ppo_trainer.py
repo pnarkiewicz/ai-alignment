@@ -11,27 +11,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from contextlib import nullcontext
 import inspect
 import math
 import os
 import time
 import typing
-from typing import Callable, List, Optional, Union
 import warnings
+from contextlib import nullcontext
+from typing import Callable, List, Optional, Union
 
-from accelerate import Accelerator
-from accelerate.utils import gather_object, is_deepspeed_available, ProjectConfiguration
 import datasets
-from datasets import Dataset
-from huggingface_hub import whoami
 import numpy as np
-from packaging import version
 import torch
 import torch.nn.functional as F
+from accelerate import Accelerator
+from accelerate.utils import ProjectConfiguration, gather_object, is_deepspeed_available
+from datasets import Dataset
+from huggingface_hub import whoami
+from packaging import version
 from torch.optim import Adam
-from transformers import DataCollatorForLanguageModeling, PreTrainedTokenizer, PreTrainedTokenizerBase, PreTrainedTokenizerFast
+from transformers import (
+    DataCollatorForLanguageModeling,
+    PreTrainedTokenizer,
+    PreTrainedTokenizerBase,
+    PreTrainedTokenizerFast,
+)
+
 from trl.core import (
+    WANDB_PADDING,
+    PPODecorators,
     clip_by_value,
     convert_to_scalar,
     entropy_from_logits,
@@ -40,18 +48,21 @@ from trl.core import (
     masked_mean,
     masked_var,
     masked_whiten,
-    PPODecorators,
     set_seed,
     stack_dicts,
     stats_to_np,
-    WANDB_PADDING,
 )
-
 # from trl.import_utils import is_npu_available, is_torch_greater_2_0, is_xpu_available
-from trl.models import create_reference_model, PreTrainedModelWrapper, SUPPORTED_ARCHITECTURES, unwrap_model_for_generation
+from trl.models import (
+    SUPPORTED_ARCHITECTURES,
+    PreTrainedModelWrapper,
+    create_reference_model,
+    unwrap_model_for_generation,
+)
 from trl.trainer import AdaptiveKLController, BaseTrainer, FixedKLController, PPOConfig, RunningMoments
 
 from utils import logger_utils
+
 
 if is_deepspeed_available():
     import deepspeed
@@ -187,9 +198,13 @@ class VerbosePPOTrainer(BaseTrainer):
         if not isinstance(config, PPOConfig):
             raise ValueError(f"config must be a PPOConfig, got {type(config)}")
         if not isinstance(tokenizer, (PreTrainedTokenizerBase)):
-            raise ValueError(f"tokenizer must be a PreTrainedTokenizerBase like a PreTrainedTokenizer or a PreTrainedTokenizerFast, got {type(tokenizer)}")
+            raise ValueError(
+                f"tokenizer must be a PreTrainedTokenizerBase like a PreTrainedTokenizer or a PreTrainedTokenizerFast, got {type(tokenizer)}"
+            )
         if not isinstance(model, (SUPPORTED_ARCHITECTURES)):
-            raise ValueError(f"model must be a PreTrainedModelWrapper, got {type(model)} - supported architectures are: {SUPPORTED_ARCHITECTURES}")
+            raise ValueError(
+                f"model must be a PreTrainedModelWrapper, got {type(model)} - supported architectures are: {SUPPORTED_ARCHITECTURES}"
+            )
         # Step 1: Initialize Accelerator
         self.accelerator = Accelerator(
             log_with=config.log_with,
@@ -232,9 +247,12 @@ class VerbosePPOTrainer(BaseTrainer):
             self.ref_model = None
         else:
             raise ValueError(
-                f"ref_model must be a PreTrainedModelWrapper or `None`, got {type(ref_model)} - supported " f"architectures are: {SUPPORTED_ARCHITECTURES} "
+                f"ref_model must be a PreTrainedModelWrapper or `None`, got {type(ref_model)} - supported "
+                f"architectures are: {SUPPORTED_ARCHITECTURES} "
             )
-        self.optional_peft_ctx = self.accelerator.unwrap_model(self.model).pretrained_model.disable_adapter if self.is_peft_model else nullcontext
+        self.optional_peft_ctx = (
+            self.accelerator.unwrap_model(self.model).pretrained_model.disable_adapter if self.is_peft_model else nullcontext
+        )
 
         if not (isinstance(tokenizer, PreTrainedTokenizer) or isinstance(tokenizer, PreTrainedTokenizerFast)):
             raise ValueError("tokenizer must be a transformers.PreTrainedTokenizer or transformers.PreTrainedTokenizerFast")
@@ -278,10 +296,14 @@ class VerbosePPOTrainer(BaseTrainer):
 
         self.lr_scheduler = lr_scheduler
         if self.lr_scheduler is not None:
-            lr_scheduler_class = torch.optim.lr_scheduler._LRScheduler if not is_torch_greater_2_0() else torch.optim.lr_scheduler.LRScheduler
+            lr_scheduler_class = (
+                torch.optim.lr_scheduler._LRScheduler if not is_torch_greater_2_0() else torch.optim.lr_scheduler.LRScheduler
+            )
 
             if not isinstance(self.lr_scheduler, lr_scheduler_class):
-                raise ValueError("lr_scheduler must be a torch.optim.lr_scheduler._LRScheduler or torch.optim.lr_scheduler.LRScheduler (for torch >= 2.0)")
+                raise ValueError(
+                    "lr_scheduler must be a torch.optim.lr_scheduler._LRScheduler or torch.optim.lr_scheduler.LRScheduler (for torch >= 2.0)"
+                )
 
         if self.config.adap_kl_ctrl:
             self.kl_ctl = AdaptiveKLController(self.config.init_kl_coef, self.config.target, self.config.horizon)
@@ -289,7 +311,9 @@ class VerbosePPOTrainer(BaseTrainer):
             self.kl_ctl = FixedKLController(self.config.init_kl_coef)
 
         # Safety checkers for DS integration
-        is_deepspeed_used = self.accelerator.distributed_type == "DEEPSPEED" and hasattr(self.accelerator.state, "deepspeed_plugin")
+        is_deepspeed_used = self.accelerator.distributed_type == "DEEPSPEED" and hasattr(
+            self.accelerator.state, "deepspeed_plugin"
+        )
 
         self.model.gradient_checkpointing_enable()
 
@@ -318,7 +342,8 @@ class VerbosePPOTrainer(BaseTrainer):
         if is_deepspeed_used:
             # Quantized models are already set on the correct device
             if not self.is_peft_model and not (
-                getattr(self.ref_model.pretrained_model, "is_loaded_in_8bit", False) or getattr(self.ref_model.pretrained_model, "is_loaded_in_4bit", False)
+                getattr(self.ref_model.pretrained_model, "is_loaded_in_8bit", False)
+                or getattr(self.ref_model.pretrained_model, "is_loaded_in_4bit", False)
             ):
                 self.ref_model = self._prepare_deepspeed(self.ref_model)
         else:
@@ -345,7 +370,7 @@ class VerbosePPOTrainer(BaseTrainer):
             self.current_device = self.accelerator.device
         else:
             # TODO: handle this nicely
-
+ 
             # if is_xpu_available():
             #     self.current_device = torch.device("xpu:0")
             # elif is_npu_available():
@@ -481,7 +506,9 @@ class VerbosePPOTrainer(BaseTrainer):
 
         else:
             if len(query_tensor.shape) == 2:
-                raise ValueError("query_tensor must be a tensor of shape (`seq_len`) or a list of tensors of shape (`seq_len`)")
+                raise ValueError(
+                    "query_tensor must be a tensor of shape (`seq_len`) or a list of tensors of shape (`seq_len`)"
+                )
 
             if length_sampler is not None:
                 generation_kwargs["max_new_tokens"] = length_sampler()
@@ -490,7 +517,9 @@ class VerbosePPOTrainer(BaseTrainer):
                 response = unwrapped_model.generate(input_ids=query_tensor.unsqueeze(dim=0), **generation_kwargs)
 
             if generate_ref_response:
-                with unwrap_model_for_generation(ref_model, self.accelerator, is_peft_model=self.is_peft_model) as unwrapped_model:
+                with unwrap_model_for_generation(
+                    ref_model, self.accelerator, is_peft_model=self.is_peft_model
+                ) as unwrapped_model:
                     ref_response = unwrapped_model.generate(input_ids=query_tensor.unsqueeze(dim=0), **generation_kwargs)
 
             if not return_prompt and not self.is_encoder_decoder:
@@ -594,7 +623,9 @@ class VerbosePPOTrainer(BaseTrainer):
             if not isinstance(tensor_list[0], torch.Tensor):
                 raise ValueError(f"Elements in {name} must be tensors - got {type(tensor_list[0])}")
             if batch_size is not None and len(tensor_list) != batch_size:
-                raise ValueError(f"Batch size ({batch_size}) does not match number of examples - but got {len(tensor_list)} for: {name}")
+                raise ValueError(
+                    f"Batch size ({batch_size}) does not match number of examples - but got {len(tensor_list)} for: {name}"
+                )
 
         # add queries, scores and responses on the correct device
         queries = [tensor.to(self.current_device) for tensor in queries]
@@ -637,7 +668,9 @@ class VerbosePPOTrainer(BaseTrainer):
         """
         bs = self.config.batch_size
 
-        queries, responses, scores, response_masks = self._step_safety_checker(bs, queries, responses, scores, response_masks)
+        queries, responses, scores, response_masks = self._step_safety_checker(
+            bs, queries, responses, scores, response_masks
+        )
         scores = torch.tensor(scores, device=self.current_device)
         if self.config.use_score_scaling:
             # Score scaling
@@ -681,7 +714,9 @@ class VerbosePPOTrainer(BaseTrainer):
                 pad_index=self.tokenizer.pad_token_id,
                 pad_first=pad_first,
             )
-            model_inputs["attention_mask"] = self.accelerator.pad_across_processes(model_inputs["attention_mask"], dim=1, pad_index=0, pad_first=pad_first)
+            model_inputs["attention_mask"] = self.accelerator.pad_across_processes(
+                model_inputs["attention_mask"], dim=1, pad_index=0, pad_first=pad_first
+            )
             if self.is_encoder_decoder:
                 model_inputs["decoder_input_ids"] = self.accelerator.pad_across_processes(
                     model_inputs["decoder_input_ids"],
@@ -910,15 +945,21 @@ class VerbosePPOTrainer(BaseTrainer):
 
     def prepare_model_inputs(self, queries: torch.Tensor, responses: torch.Tensor):
         if self.is_encoder_decoder:
-            input_data = self.data_collator([{"input_ids": q, "attention_mask": torch.ones_like(q)} for q in queries]).to(self.current_device)
+            input_data = self.data_collator([{"input_ids": q, "attention_mask": torch.ones_like(q)} for q in queries]).to(
+                self.current_device
+            )
 
-            decoder_inputs = self.data_collator([{"input_ids": r, "attention_mask": torch.ones_like(r)} for r in responses]).to(self.current_device)
+            decoder_inputs = self.data_collator(
+                [{"input_ids": r, "attention_mask": torch.ones_like(r)} for r in responses]
+            ).to(self.current_device)
 
             input_data["decoder_input_ids"] = decoder_inputs["input_ids"]
             input_data["decoder_attention_mask"] = decoder_inputs["attention_mask"]
         else:
             input_ids = [torch.cat([q, r]) for q, r in zip(queries, responses)]
-            input_data = self.data_collator([{"input_ids": ids, "attention_mask": torch.ones_like(ids)} for ids in input_ids]).to(self.current_device)
+            input_data = self.data_collator(
+                [{"input_ids": ids, "attention_mask": torch.ones_like(ids)} for ids in input_ids]
+            ).to(self.current_device)
 
         input_data.pop("labels", None)  # we don't want to compute LM losses
         return input_data
@@ -1190,7 +1231,9 @@ class VerbosePPOTrainer(BaseTrainer):
 
         avg_ratio = masked_mean(ratio, mask).item()
         if avg_ratio > self.config.ratio_threshold:
-            warnings.warn(f"The average ratio of batch ({avg_ratio:.2f}) exceeds threshold {self.config.ratio_threshold:.2f}. Skipping batch.")
+            warnings.warn(
+                f"The average ratio of batch ({avg_ratio:.2f}) exceeds threshold {self.config.ratio_threshold:.2f}. Skipping batch."
+            )
             pg_loss = pg_loss * 0.0
             vf_loss = vf_loss * 0.0
             loss = loss * 0.0
@@ -1205,8 +1248,8 @@ class VerbosePPOTrainer(BaseTrainer):
 
         pgl = pg_loss.detach()
         vfl = vf_loss.detach()
-        loss.detach()
-        vfl / abs(pgl)
+        total = loss.detach()
+        vflpgratio = vfl / abs(pgl)
 
         stats = dict(
             loss=dict(policy=pg_loss.detach(), value=vf_loss.detach(), total=loss.detach()),
@@ -1252,7 +1295,9 @@ class VerbosePPOTrainer(BaseTrainer):
         mean_kl = kl_list.mean()
         mean_entropy = (-data["logprobs"] * mask).sum(axis=-1).mean()
 
-        mean_non_score_reward = masked_mean(data["non_score_reward"], mask)  # non_score_reward is size `batch_size`, `response_length`
+        mean_non_score_reward = masked_mean(
+            data["non_score_reward"], mask
+        )  # non_score_reward is size `batch_size`, `response_length`
         mean_scores = data["scores"].mean()  # scores is size `batch_size`
         std_scores = data["scores"].std()
 
@@ -1338,7 +1383,10 @@ class VerbosePPOTrainer(BaseTrainer):
             # Log stats
             if "query" not in batch.keys() and "response" not in batch.keys():
                 # warn the user that the game logs will not be logged
-                warnings.warn("The game logs will not be logged because the batch does not contain the keys 'query' and " "'response'. ")
+                warnings.warn(
+                    "The game logs will not be logged because the batch does not contain the keys 'query' and "
+                    "'response'. "
+                )
             elif self.config.log_with == "wandb":
                 table_rows = [list(r) for r in zip(*batch_list, rewards.cpu().tolist())]
                 logs.update({"game_log": wandb.Table(columns=[*columns_to_log, "reward"], rows=table_rows)})
@@ -1410,7 +1458,11 @@ class VerbosePPOTrainer(BaseTrainer):
         config_kwargs = deepspeed_plugin.deepspeed_config
         if model is not None:
             if hasattr(model, "config"):
-                hidden_size = max(model.config.hidden_sizes) if getattr(model.config, "hidden_sizes", None) else getattr(model.config, "hidden_size", None)
+                hidden_size = (
+                    max(model.config.hidden_sizes)
+                    if getattr(model.config, "hidden_sizes", None)
+                    else getattr(model.config, "hidden_size", None)
+                )
                 if hidden_size is not None and config_kwargs["zero_optimization"]["stage"] == 3:
                     # Note that `stage3_prefetch_bucket_size` can produce DeepSpeed messages like: `Invalidate trace cache @ step 0: expected module 1, but got module 0`
                     # This is expected and is not an error, see: https://github.com/microsoft/DeepSpeed/discussions/4081

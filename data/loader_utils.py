@@ -1,13 +1,13 @@
-from typing import Type
-
+from data.dataset import RawDataLoader, DatasetType
 from data.annotated_quality_debates_loader import AnnotatedQualityDebatesLoader
-from data.dataset import DatasetType, RawDataLoader
 from data.judge_preferences_loader import CorrectnessJudgePreferencesLoader, JudgePreferencesLoader
+from data.scratchpad_quality_debates_loader import ScratchpadQualityDebatesLoader
+from data.quality_loader import QualityLoader
 from data.quality_debates_loader import QualityConsultancyLoader, QualityDebatesLoader
 from data.quality_judging_loader import QualityJudgingLoader
-from data.quality_loader import QualityLoader
 from data.quote_relevance_loader import QuoteRelevanceLoader
-from data.scratchpad_quality_debates_loader import ScratchpadQualityDebatesLoader
+
+from typing import Type
 
 
 def get_loader_type(dataset_type: DatasetType) -> Type[RawDataLoader]:

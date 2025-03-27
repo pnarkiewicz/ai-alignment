@@ -56,13 +56,6 @@ Run all tests using:
 pytest
 ```
 
-## Git hooks
-We use [pre-commit](https://pre-commit.com/) to manage git hooks.
-To configure this extension one has to run
-```sh
-pre-commit install
-```
-
 ## Setup
 
 Note: Given the current state of this project, this README will just give an overview of the code structure. It is not an introduction to the overall effort.

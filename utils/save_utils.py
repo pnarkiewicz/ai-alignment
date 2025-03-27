@@ -1,6 +1,6 @@
 from peft import PeftModel
-import torch
 from transformers import AutoModelForCausalLM
+import torch
 
 
 def save(base_model_name: str, adapter_name: str, merge_name: str):

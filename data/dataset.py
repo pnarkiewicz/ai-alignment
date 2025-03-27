@@ -1,7 +1,7 @@
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, field_validator
 import torch
