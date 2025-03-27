@@ -1,18 +1,13 @@
-from debate.agent import Agent
-from debate.debater import Debater
-from debate.judge import Judge
-from debate.transcript import Transcript
-from models import ModelResponse
-from prompts import Prompt, PromptConfig, PromptParser
-from utils import logger_utils, quote_utils
-import utils.constants as constants
+from enum import Enum
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from enum import Enum
-from typing import Optional, Any, Union
-import copy
-import random
+import utils.constants as constants
+from debate.debater import Debater
+from debate.judge import Judge
+from models import ModelResponse
+from utils import logger_utils, quote_utils
 
 
 class QuestionMetadata(BaseModel):
@@ -146,7 +141,8 @@ class DebateRound:
 
         if save_file_path_prefix:
             self.name_to_agent[self.judge.expected_saver].save(
-                save_file_path_prefix=save_file_path_prefix, metadata=[item.dict() for item in self.metadata]
+                save_file_path_prefix=save_file_path_prefix,
+                metadata=[item.dict() for item in self.metadata],
             )
 
         return [
@@ -154,7 +150,9 @@ class DebateRound:
                 metadata=self.metadata[i % len(self.metadata)],
                 transcript=self.judge.get_transcript(idx=i),
                 winning_alias=self.first_debater.get_alias() if first_debater_wins else self.second_debater.get_alias(),
-                losing_alias=self.first_debater.get_alias() if not first_debater_wins else self.second_debater.get_alias(),
+                losing_alias=self.first_debater.get_alias()
+                if not first_debater_wins
+                else self.second_debater.get_alias(),
                 first_debater_alias=self.first_debater.get_alias(),
                 second_debater_alias=self.second_debater.get_alias(),
                 first_debater_wins=first_debater_wins,
@@ -166,8 +164,10 @@ class DebateRound:
                 second_debater_win_prob=(1 - winning_probability_list[i])
                 if first_debater_wins
                 else winning_probability_list[i],
-                first_debater_speaks=constants.DEFAULT_DEBATER_A_NAME in self.judge.get_transcript(idx=i).get_speakers(),
-                second_debater_speaks=constants.DEFAULT_DEBATER_B_NAME in self.judge.get_transcript(idx=i).get_speakers(),
+                first_debater_speaks=constants.DEFAULT_DEBATER_A_NAME
+                in self.judge.get_transcript(idx=i).get_speakers(),
+                second_debater_speaks=constants.DEFAULT_DEBATER_B_NAME
+                in self.judge.get_transcript(idx=i).get_speakers(),
                 failed=failed_list[i],
             )
             for i, first_debater_wins in enumerate(first_debater_win_list)
@@ -177,5 +177,7 @@ class DebateRound:
         """Runs the round and generates a summary of the results"""
         last_output, last_model_output = self.run_round()
         return self.record_winners(
-            last_output=last_output, last_model_output=last_model_output, save_file_path_prefix=save_file_path_prefix
+            last_output=last_output,
+            last_model_output=last_model_output,
+            save_file_path_prefix=save_file_path_prefix,
         )

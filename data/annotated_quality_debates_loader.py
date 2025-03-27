@@ -1,3 +1,13 @@
+import copy
+import os
+import pickle
+import re
+from difflib import SequenceMatcher
+from typing import Optional
+
+from pydantic import BaseModel
+
+import utils.constants as constants
 from data.dataset import (
     AnnotationBracket,
     AnnotationData,
@@ -6,23 +16,10 @@ from data.dataset import (
     DatasetType,
     RawDataLoader,
     RawDataset,
-    SpeakerType,
     SpeechData,
     SplitType,
 )
 from data.quality_debates_loader import QualityDebatesDataset, QualityDebatesLoader
-import utils.constants as constants
-
-from pydantic import BaseModel
-
-from difflib import SequenceMatcher
-from enum import Enum
-from typing import Optional, Union
-import copy
-import pickle
-import os
-import re
-import sys
 
 
 class Annotation(BaseModel):
@@ -70,7 +67,12 @@ class AnnotatedQualityDebatesDataset(RawDataset):
 
     @classmethod
     def meets_threshold(
-        cls, tag: AnnotationTag, bracket: AnnotationBracket, threshold: float, positive: bool, speech: SpeechData
+        cls,
+        tag: AnnotationTag,
+        bracket: AnnotationBracket,
+        threshold: float,
+        positive: bool,
+        speech: SpeechData,
     ):
         """
         Checks whether a given speech meets all the required filters.
@@ -138,9 +140,13 @@ class AnnotatedQualityDebatesDataset(RawDataset):
             A list of speeches that meet the specified criteria.
         """
         eligible_examples = []
-        for row in filter(lambda x: not source_row or source_row.story_title != x.story_title, self.data[SplitType.TRAIN]):
+        for row in filter(
+            lambda x: not source_row or source_row.story_title != x.story_title,
+            self.data[SplitType.TRAIN],
+        ):
             for speech in filter(
-                lambda x: AnnotatedQualityDebatesDataset.meets_threshold(tag, bracket, threshold, positive, x), row.speeches
+                lambda x: AnnotatedQualityDebatesDataset.meets_threshold(tag, bracket, threshold, positive, x),
+                row.speeches,
             ):
                 eligible_examples.append(speech)
         return eligible_examples
@@ -163,7 +169,9 @@ class AnnotatedQualityDebatesDataset(RawDataset):
             for i, row in enumerate(self.data[split]):
                 annotations = [Annotation(**entry) for entry in id_to_speeches[row.debate_id]]
                 for annotation in annotations:
-                    annotation.metrics = {AnnotationTag[key.upper()]: value for key, value in annotation.metrics.items()}
+                    annotation.metrics = {
+                        AnnotationTag[key.upper()]: value for key, value in annotation.metrics.items()
+                    }
                 for speech in row.speeches:
                     matching = match_speeches(speech, annotations)
                     speech.annotation = AnnotationData(percents={}, percentiles={})
@@ -197,7 +205,9 @@ class AnnotatedQualityDebatesLoader(RawDataLoader):
     ) -> AnnotatedQualityDebatesDataset:
         """Constructs an AnnotatedQualityDebatesDataset"""
         annotations_file_path = (
-            supplemental_file_paths.get("annotations_file_path", AnnotatedQualityDebatesLoader.DEFAULT_ANNOTATIONS_FILE_PATH)
+            supplemental_file_paths.get(
+                "annotations_file_path", AnnotatedQualityDebatesLoader.DEFAULT_ANNOTATIONS_FILE_PATH
+            )
             if supplemental_file_paths
             else AnnotatedQualityDebatesLoader.DEFAULT_ANNOTATIONS_FILE_PATH
         )
@@ -205,4 +215,6 @@ class AnnotatedQualityDebatesLoader(RawDataLoader):
         quality_debates_dataset = QualityDebatesLoader.load(
             full_dataset_filepath=full_dataset_filepath, deduplicate=deduplicate
         )
-        return AnnotatedQualityDebatesDataset(dataset=quality_debates_dataset, annotations_file_path=annotations_file_path)
+        return AnnotatedQualityDebatesDataset(
+            dataset=quality_debates_dataset, annotations_file_path=annotations_file_path
+        )

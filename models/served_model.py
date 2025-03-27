@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from models.model import Model, ModelInput, ModelResponse, SpeechStructure
-from models.llm_model import GenerationParams
-from utils import logger_utils, timer
-
-from pydantic import BaseModel
-import requests
-
 from concurrent.futures import ThreadPoolExecutor
+
+import requests
+from pydantic import BaseModel
+
+from models.llm_model import GenerationParams
+from models.model import Model, ModelInput, ModelResponse, SpeechStructure
+from utils import logger_utils, timer
 
 
 class RequestParams(BaseModel):

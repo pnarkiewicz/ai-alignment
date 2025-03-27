@@ -1,24 +1,24 @@
-from debate import DebateRoundSummary, QuestionMetadata
-from experiments.experiment_loader import ExperimentConfig
-from experiments.quotes_collector import QuotesCollector
-from utils import InputType, input_utils, logger_utils
-import utils.constants as constants
-
-from pydantic import BaseModel
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import scipy.optimize
-import scipy.stats
-
-from typing import Optional, Any
 import json
 import math
 import os
 import re
 import uuid
+from typing import Any, Optional
+
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+import numpy as np
+import pandas as pd
+import scipy.optimize
+import scipy.stats
+import seaborn as sns
+from pydantic import BaseModel
+
+import utils.constants as constants
+from debate import DebateRoundSummary, QuestionMetadata
+from experiments.experiment_loader import ExperimentConfig
+from experiments.quotes_collector import QuotesCollector
+from utils import InputType, input_utils, logger_utils
 
 
 class WinStats(BaseModel):
@@ -117,7 +117,9 @@ class ResultsCollector:
         """
         self.logger = logger_utils.get_default_logger(__name__)
         self.quotes_collector = QuotesCollector(experiment=experiment) if experiment else None
-        self.annotator = None  # Annotator(model_path=experiment.annotations_classifier_file_path) if should_save else None
+        self.annotator = (
+            None  # Annotator(model_path=experiment.annotations_classifier_file_path) if should_save else None
+        )
         self.experiment = experiment
         self.graphs_path_prefix = graphs_path_prefix
         self.full_record_path_prefix = full_record_path_prefix
@@ -183,7 +185,9 @@ class ResultsCollector:
                 binary_matchups_to_stats[pair] = JudgeStats()
             matchup_to_stats[pair].matches += 1
             matchup_to_stats[pair].correct_calls += (
-                summary.first_debater_win_prob if summary.metadata.first_debater_correct else summary.second_debater_win_prob
+                summary.first_debater_win_prob
+                if summary.metadata.first_debater_correct
+                else summary.second_debater_win_prob
             )
             binary_matchups_to_stats[pair].matches += 1
             binary_correct = (summary.metadata.first_debater_correct and summary.first_debater_win_prob > 0.5) or (
@@ -204,7 +208,9 @@ class ResultsCollector:
                     aggregated_matchups_to_stats[pair] = JudgeStats()
 
                 aggregated_matchups_to_stats[pair].matches += 1
-                first_debater_win_prob = (summary.first_debater_win_prob + self.summaries[i + 1].first_debater_win_prob) / 2
+                first_debater_win_prob = (
+                    summary.first_debater_win_prob + self.summaries[i + 1].first_debater_win_prob
+                ) / 2
                 second_debater_win_prob = (
                     summary.second_debater_win_prob + self.summaries[i + 1].second_debater_win_prob
                 ) / 2
@@ -227,7 +233,8 @@ class ResultsCollector:
                     [
                         matchup_to_stats[matchup].correct_calls / matchup_to_stats[matchup].matches,
                         binary_matchups_to_stats[matchup].correct_calls / binary_matchups_to_stats[matchup].matches,
-                        aggregated_matchups_to_stats[matchup].correct_calls / aggregated_matchups_to_stats[matchup].matches,
+                        aggregated_matchups_to_stats[matchup].correct_calls
+                        / aggregated_matchups_to_stats[matchup].matches,
                     ],
                     bar_width,
                     label=matchup,
@@ -243,7 +250,8 @@ class ResultsCollector:
                     (np.arange(len(matchup_to_stats)) * group_width) + (i * bar_width),
                     [
                         matchup_to_stats[matchup].first_calls / matchup_to_stats[matchup].matches,
-                        aggregated_matchups_to_stats[matchup].first_calls / aggregated_matchups_to_stats[matchup].matches,
+                        aggregated_matchups_to_stats[matchup].first_calls
+                        / aggregated_matchups_to_stats[matchup].matches,
                         binary_matchups_to_stats[matchup].first_calls / binary_matchups_to_stats[matchup].matches,
                     ],
                     bar_width,
@@ -255,13 +263,19 @@ class ResultsCollector:
             axs[1].set_ylim(0, 1)
             axs[1].legend()
         else:
-            axs[0].bar(matchup_to_stats.keys(), [val.correct_calls / val.matches for _, val in matchup_to_stats.items()])
+            axs[0].bar(
+                matchup_to_stats.keys(),
+                [val.correct_calls / val.matches for _, val in matchup_to_stats.items()],
+            )
             axs[0].set_xticklabels(matchup_to_stats.keys(), rotation="vertical")
             axs[0].xaxis.set_major_locator(ticker.FixedLocator(range(len(matchup_to_stats))))
             axs[0].set_title("Percent Correct")
             axs[0].set_ylim(0, 1)
 
-            axs[1].bar(matchup_to_stats.keys(), [val.first_calls / val.matches for _, val in matchup_to_stats.items()])
+            axs[1].bar(
+                matchup_to_stats.keys(),
+                [val.first_calls / val.matches for _, val in matchup_to_stats.items()],
+            )
             axs[1].set_xticklabels(matchup_to_stats.keys(), rotation="vertical")
             axs[1].xaxis.set_major_locator(ticker.FixedLocator(range(len(matchup_to_stats))))
             axs[1].set_title("Percent Chose First Debater")
@@ -313,7 +327,9 @@ class ResultsCollector:
 
         axs[2].scatter(xs, ys, sizes=sizes, label="Individual")
         if self.experiment.flip and not self.is_offline and self.num_debaters > 1:
-            agg_xs = [bottom for i, bottom in filter(lambda x: agg_buckets[x[0]][1] > 0, enumerate(bucket_bottoms[:-1]))]
+            agg_xs = [
+                bottom for i, bottom in filter(lambda x: agg_buckets[x[0]][1] > 0, enumerate(bucket_bottoms[:-1]))
+            ]
             agg_ys = [wins / count for (wins, count) in filter(lambda x: x[1] > 0, agg_buckets)]
             agg_max_count = max([count for (_, count) in agg_buckets])
             agg_sizes = [(count / max_count) * 100 for (_, count) in filter(lambda x: x[1] > 0, agg_buckets)]
@@ -331,7 +347,11 @@ class ResultsCollector:
         self.__save_graph("Judge")
         plt.show()
 
-        return {"standard": matchup_to_stats, "aggregated": aggregated_matchups_to_stats, "binary": binary_matchups_to_stats}
+        return {
+            "standard": matchup_to_stats,
+            "aggregated": aggregated_matchups_to_stats,
+            "binary": binary_matchups_to_stats,
+        }
 
     def __graph_wins(self) -> dict[str, float]:
         def bayesian_credible_interval(wins: int, games: int, confidence: float = 0.95):
@@ -422,7 +442,14 @@ class ResultsCollector:
                 losses = win_rate_map.get(second, {}).get(first, 0)
                 win_rate_matrix[-1].append((wins / (wins + losses)) if (wins + losses > 0) else 0.5)
 
-        sns.heatmap(np.flip(win_rate_matrix, axis=0), annot=True, fmt=".1%", cmap="coolwarm_r", cbar=False, ax=ax2)
+        sns.heatmap(
+            np.flip(win_rate_matrix, axis=0),
+            annot=True,
+            fmt=".1%",
+            cmap="coolwarm_r",
+            cbar=False,
+            ax=ax2,
+        )
 
         ax2.set_xticklabels(self.aliases)
         ax2.set_yticklabels([self.aliases[len(self.aliases) - 1 - i] for i in range(len(self.aliases))])
@@ -488,7 +515,14 @@ class ResultsCollector:
                 )
                 computed_win_rate_matrix[-1].append(computed_win_rate)
 
-        sns.heatmap(np.flip(computed_win_rate_matrix, axis=0), annot=True, fmt=".1%", cmap="coolwarm_r", cbar=False, ax=ax2)
+        sns.heatmap(
+            np.flip(computed_win_rate_matrix, axis=0),
+            annot=True,
+            fmt=".1%",
+            cmap="coolwarm_r",
+            cbar=False,
+            ax=ax2,
+        )
 
         ax2.set_xticklabels(categories)
         ax2.set_yticklabels([categories[len(categories) - 1 - i] for i in range(len(categories))])
@@ -545,7 +579,9 @@ class ResultsCollector:
 
         current_aliases = set([debater.model_settings.alias for debater in self.experiment.agents.debaters])
         significance_map = {alias: {other: default_value for other in current_aliases} for alias in current_aliases}
-        combined_win_rate_map = {alias: {other: default_value for other in current_aliases} for alias in current_aliases}
+        combined_win_rate_map = {
+            alias: {other: default_value for other in current_aliases} for alias in current_aliases
+        }
 
         for alias in significance_map:
             for other in filter(lambda x: x != alias, significance_map[alias]):
@@ -567,7 +603,13 @@ class ResultsCollector:
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
 
-        sns.heatmap(np.flip(significance_matrix, axis=0), annot=True, cmap=plt.cm.coolwarm.reversed(), cbar=False, ax=ax1)
+        sns.heatmap(
+            np.flip(significance_matrix, axis=0),
+            annot=True,
+            cmap=plt.cm.coolwarm.reversed(),
+            cbar=False,
+            ax=ax1,
+        )
         ax1.set_xticklabels([alias for alias in significance_map])
         ax1.set_yticklabels(reversed([alias for alias in significance_map]))
         ax1.set_xlabel("Worse Debater")
@@ -575,7 +617,11 @@ class ResultsCollector:
         ax1.set_title("Paired Significance Test")
 
         sns.heatmap(
-            np.flip(combined_win_rate_matrix, axis=0), annot=True, cmap=plt.cm.coolwarm.reversed(), cbar=False, ax=ax2
+            np.flip(combined_win_rate_matrix, axis=0),
+            annot=True,
+            cmap=plt.cm.coolwarm.reversed(),
+            cbar=False,
+            ax=ax2,
         )
         ax2.set_xticklabels([alias for alias in combined_win_rate_map])
         ax2.set_yticklabels(reversed([alias for alias in combined_win_rate_map]))
@@ -597,7 +643,13 @@ class ResultsCollector:
             )
 
         results = self.quotes_collector.get_results()
-        all_categories = [constants.OVERALL, constants.WINNER, constants.LOSER, constants.CORRECT, constants.INCORRECT]
+        all_categories = [
+            constants.OVERALL,
+            constants.WINNER,
+            constants.LOSER,
+            constants.CORRECT,
+            constants.INCORRECT,
+        ]
 
         category_to_counts = {}
         for name in results:
@@ -652,7 +704,12 @@ class ResultsCollector:
 
         for i, key in enumerate(all_categories):
             axs[0, 0].set_ylim(0, 1)
-            axs[0, 0].bar(index + (i * bar_width), [item for _, item in quote_accuracy[key].items()], bar_width, label=key)
+            axs[0, 0].bar(
+                index + (i * bar_width),
+                [item for _, item in quote_accuracy[key].items()],
+                bar_width,
+                label=key,
+            )
             axs[0, 0].set_xticks(index + (bar_width * (len(all_categories) - 1)) / self.num_debaters, results.keys())
             axs[0, 0].set_title("Valid Quote Percentage")
             axs[0, 0].legend()

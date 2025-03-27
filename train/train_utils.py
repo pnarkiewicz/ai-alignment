@@ -1,31 +1,30 @@
-from data import DatasetConfig, loader_utils, RawDataset
-from debate import ScratchpadConfig, SpeechFormatStructure
-from models import LLMType, LLModel, ModelStub, TokenizerStub
-from models.arbitrary_attribute_model import ArbitraryAttributeModel
-from models.deterministic_model import DeterministicModel
-from models.openai_model import OpenAIModel
-from models.random_model import RandomModel
-from prompts import PromptLoadingConfig
-import utils.constants as constants
+from enum import Enum
+from typing import Any, Optional
 
+import torch
+import yaml
 from peft import (
     LoraConfig,
     PeftConfig,
     PeftModel,
     PeftType,
-    PromptTuningInit,
     PromptTuningConfig,
+    PromptTuningInit,
     TaskType,
 )
-from pydantic import BaseModel, ConfigDict, model_validator, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import AutoModelForCausalLMWithValueHead
-import torch
-import yaml
 
-from enum import Enum
-from typing import Any, Optional
-import os
+import utils.constants as constants
+from data import DatasetConfig, RawDataset, loader_utils
+from debate import ScratchpadConfig, SpeechFormatStructure
+from models import LLModel, LLMType, ModelStub, TokenizerStub
+from models.arbitrary_attribute_model import ArbitraryAttributeModel
+from models.deterministic_model import DeterministicModel
+from models.openai_model import OpenAIModel
+from models.random_model import RandomModel
+from prompts import PromptLoadingConfig
 
 
 class TrainingTarget(Enum):
@@ -89,9 +88,7 @@ class TrainingConfig(BaseModel):
     requires_token: bool = False
     max_length: int = constants.MAX_LENGTH
     scratchpad_config: ScratchpadConfig = ScratchpadConfig()
-    speech_structure: SpeechFormatStructure | list[SpeechFormatStructure] = [
-        SpeechFormatStructure.DEFAULT_DEBATE
-    ]
+    speech_structure: SpeechFormatStructure | list[SpeechFormatStructure] = [SpeechFormatStructure.DEFAULT_DEBATE]
     tokenizer_file_path: Optional[str] = None
     model_config = ConfigDict(protected_namespaces=("protect_me_", "also_protect_"))
 
@@ -99,9 +96,7 @@ class TrainingConfig(BaseModel):
     @classmethod
     def validate_speech_structure(
         cls,
-        speech_structure: (
-            str | SpeechFormatStructure | list[str] | list[SpeechFormatStructure]
-        ),
+        speech_structure: (str | SpeechFormatStructure | list[str] | list[SpeechFormatStructure]),
     ):
         if not isinstance(speech_structure, list):
             speech_structure = [speech_structure]
@@ -132,18 +127,14 @@ class TrainingConfig(BaseModel):
     @model_validator(mode="after")
     @classmethod
     def ensure_speech_structure_matches_datasets(cls, values):
-        if len(values.speech_structure) > 1 and len(values.speech_structure) != len(
-            values.dataset
-        ):
-            raise ValueError(f"We could not match speech structures to each dataset")
+        if len(values.speech_structure) > 1 and len(values.speech_structure) != len(values.dataset):
+            raise ValueError("We could not match speech structures to each dataset")
         return values
 
 
 class TrainUtils:
     @classmethod
-    def create_datasets(
-        cls, config: TrainingConfig, deduplicate: bool = False, **kwargs
-    ) -> list[RawDataset]:
+    def create_datasets(cls, config: TrainingConfig, deduplicate: bool = False, **kwargs) -> list[RawDataset]:
         """
         Constructs a dataset that will later be converted into a training dataset.
 
@@ -159,9 +150,7 @@ class TrainUtils:
             dataset_configs = [dataset_configs]
 
         datasets = []
-        for dataset_config in filter(
-            lambda x: x.dataset_type.is_instantiable, dataset_configs
-        ):
+        for dataset_config in filter(lambda x: x.dataset_type.is_instantiable, dataset_configs):
             loader_cls = loader_utils.get_loader_type(dataset_config.dataset_type)
             dataset = loader_cls.load(
                 full_dataset_filepath=dataset_config.full_dataset_file_path,
@@ -177,9 +166,7 @@ class TrainUtils:
         return datasets
 
     @classmethod
-    def parse_config(
-        cls, config_name: Optional[str], config_filepath: str
-    ) -> TrainingConfig:
+    def parse_config(cls, config_name: Optional[str], config_filepath: str) -> TrainingConfig:
         """Loads a yaml file and converts it into a training configuration"""
         with open(config_filepath) as f:
             loaded_yaml = yaml.safe_load(f)
@@ -246,11 +233,7 @@ class TrainUtils:
         if not is_local:
             peft_config = TrainUtils.get_peft_config(config=config)
             llm_cls = TrainUtils.get_llm_class(config)
-            model_name = (
-                config.model_name
-                if not load_as_peft_model
-                else config.reference_model_name
-            )
+            model_name = config.model_name if not load_as_peft_model else config.reference_model_name
             model = LLModel.instantiate_hf_model(
                 file_path=model_name,
                 requires_token=config.requires_token,
@@ -271,7 +254,7 @@ class TrainUtils:
                 use_flash_attention = True
                 try:
                     import flash_attn
-                except ImportError as e:
+                except ImportError:
                     use_flash_attention = False
 
                 quantization_config = None
@@ -296,9 +279,7 @@ class TrainUtils:
             return ModelStub()
 
     @classmethod
-    def load_judge_model(
-        cls, config: TrainingConfig, is_local: bool = False
-    ) -> AutoModelForCausalLM:
+    def load_judge_model(cls, config: TrainingConfig, is_local: bool = False) -> AutoModelForCausalLM:
         """Loads the judge model"""
 
         DEFAULT_JUDGE_ALIAS = "default-judge"
@@ -312,9 +293,7 @@ class TrainUtils:
                 feature=supplemental.get("feature", "l"),
             )
 
-        if (
-            judge_type == "deterministic"
-        ):  # Currently, DEFAULT_DEBATER_A_NAME is hardcoded as the winner
+        if judge_type == "deterministic":  # Currently, DEFAULT_DEBATER_A_NAME is hardcoded as the winner
             return DeterministicModel(
                 alias=DEFAULT_JUDGE_ALIAS,
                 is_debater=False,
@@ -331,15 +310,11 @@ class TrainUtils:
             )
 
     @classmethod
-    def get_tokenizer(
-        cls, config: TrainingConfig, is_local: bool = False
-    ) -> AutoTokenizer:
+    def get_tokenizer(cls, config: TrainingConfig, is_local: bool = False) -> AutoTokenizer:
         """Gets the tokenizer associated with the specified model"""
         if is_local or config.model_name == "stub_model":
             return TokenizerStub()
-        return LLModel.instantiate_tokenizer(
-            file_path=config.model_name, requires_token=config.requires_token
-        )
+        return LLModel.instantiate_tokenizer(file_path=config.model_name, requires_token=config.requires_token)
 
     @classmethod
     def get_llm_class(cls, config: TrainingConfig):

@@ -1,38 +1,44 @@
 from __future__ import annotations
 
-from models.model import GenerationParams, Model, ModelInput, ModelResponse, ProbeHyperparams, SpeechStructure
-from models.openai_model import OpenAIModel
-from prompts import RoleType
-from utils import logger_utils, string_utils, timer, get_device
-import utils.constants as constants
-
-from peft import PeftModel
-from pydantic import BaseModel
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, GenerationConfig
-import numpy as np
-import torch.nn as nn
-import torch.nn.functional as F
-import torch
-
-from dataclasses import dataclass
-from enum import auto, Enum
-from typing import Any, Optional, Type
 import base64
 import copy
 import io
 import math
 import os
 import random
+from dataclasses import dataclass
+from enum import Enum, auto
+from typing import Any, Optional, Type
+
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from peft import PeftModel
+from pydantic import BaseModel
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, GenerationConfig
+
+import utils.constants as constants
+from models.model import (
+    GenerationParams,
+    Model,
+    ModelInput,
+    ModelResponse,
+    ProbeHyperparams,
+    SpeechStructure,
+)
+from models.openai_model import OpenAIModel
+from prompts import RoleType
+from utils import get_device, logger_utils, string_utils, timer
 from utils.constants import DEBUG, GENERATION_LEN
 
 HAVE_FLASH = False
 try:
     import flash_attn
+
     HAVE_FLASH = True
 except ImportError:
     print("Flash attention not available")
-
-
 
 
 class LLMInput(BaseModel):
@@ -129,7 +135,9 @@ class LLModel(Model):
             self.model = None
             self.generation_config = None
 
-    def create_default_generation_config(self, is_debater: bool, generation_params: GenerationParams) -> GenerationConfig:
+    def create_default_generation_config(
+        self, is_debater: bool, generation_params: GenerationParams
+    ) -> GenerationConfig:
         """Creates a default generation config so that the model can generate text"""
         config_terms = {
             "max_new_tokens": GENERATION_LEN if DEBUG else generation_params.max_new_tokens,
@@ -197,7 +205,7 @@ class LLModel(Model):
             quantize = False
             print("CUDA not available, disabling quantization")
             if torch.backends.mps.is_available():
-                device_map = {"": "mps"} # Prevents trl from failing on MPS
+                device_map = {"": "mps"}  # Prevents trl from failing on MPS
 
         model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=peft_base_model or file_path,
@@ -211,7 +219,9 @@ class LLModel(Model):
         ).to(device)
 
         if peft_base_model:
-            model = PeftModel.from_pretrained(model=model, model_id=file_path, adapter_name="default", is_trainable=False)
+            model = PeftModel.from_pretrained(
+                model=model, model_id=file_path, adapter_name="default", is_trainable=False
+            )
             model = model.merge_and_unload()
 
         return model
@@ -225,9 +235,14 @@ class LLModel(Model):
         peft_base_model: Optional[str] = None,
     ) -> tuple[AutoTokenizer, AutoModelForCausalLM]:
         """Constructs the tokenizer and huggingface model at the specified filepath"""
-        tokenizer = LLModel.instantiate_tokenizer(file_path=tokenizer_file_path or file_path, requires_token=requires_token)
+        tokenizer = LLModel.instantiate_tokenizer(
+            file_path=tokenizer_file_path or file_path, requires_token=requires_token
+        )
         hf_model = LLModel.instantiate_hf_model(
-            file_path=file_path, requires_token=requires_token, quantize=quantize, peft_base_model=peft_base_model
+            file_path=file_path,
+            requires_token=requires_token,
+            quantize=quantize,
+            peft_base_model=peft_base_model,
         )
         return tokenizer, hf_model
 
@@ -238,7 +253,9 @@ class LLModel(Model):
             instruction="\n".join(
                 model_input.content for model_input in filter(lambda x: x.role == RoleType.SYSTEM, input_list)
             ),
-            input="\n".join(model_input.content for model_input in filter(lambda x: x.role != RoleType.SYSTEM, input_list)),
+            input="\n".join(
+                model_input.content for model_input in filter(lambda x: x.role != RoleType.SYSTEM, input_list)
+            ),
             extra_suffix=extra_suffix,
         )
 
@@ -262,7 +279,9 @@ class LLModel(Model):
     ) -> str:
         """Converts the list of model inputs to a string"""
 
-        system = "\n".join(model_input.content for model_input in filter(lambda x: x.role == RoleType.SYSTEM, input_list))
+        system = "\n".join(
+            model_input.content for model_input in filter(lambda x: x.role == RoleType.SYSTEM, input_list)
+        )
         user = "\n".join(model_input.content for model_input in filter(lambda x: x.role != RoleType.SYSTEM, input_list))
         try:
             output = tokenizer.apply_chat_template(
@@ -272,7 +291,7 @@ class LLModel(Model):
                 chat_template=tokenizer.chat_template,
             )
             return output
-        except Exception as e:
+        except Exception:
             return LLModel.generate_input_str(
                 llm_input=LLMInput(
                     instruction=system,
@@ -284,7 +303,9 @@ class LLModel(Model):
             )
 
     def generate_input_strs(
-        self, inputs: list[list[ModelInput]], speech_structure: SpeechStructure = SpeechStructure.OPEN_ENDED
+        self,
+        inputs: list[list[ModelInput]],
+        speech_structure: SpeechStructure = SpeechStructure.OPEN_ENDED,
     ) -> list[str]:
         """Converts a list of model inputs into a list of strings that can be tokenized"""
         return [
@@ -351,7 +372,8 @@ class LLModel(Model):
             logits = []
             input_lengths = []
             minibatches = [
-                input_strs[i : i + self.max_mini_batch_size] for i in range(0, len(input_strs), self.max_mini_batch_size)
+                input_strs[i : i + self.max_mini_batch_size]
+                for i in range(0, len(input_strs), self.max_mini_batch_size)
             ]
             for minibatch in minibatches:
                 inputs = self.tokenizer(minibatch, return_tensors="pt", padding=True).to(device)
@@ -583,7 +605,10 @@ class Llama3Model(LLModel):
         generation_config = super().create_default_generation_config(
             is_debater=is_debater, generation_params=generation_params
         )
-        generation_config.eos_token_id = [self.tokenizer.eos_token_id, self.tokenizer.convert_tokens_to_ids("<|eot_id|>")]
+        generation_config.eos_token_id = [
+            self.tokenizer.eos_token_id,
+            self.tokenizer.convert_tokens_to_ids("<|eot_id|>"),
+        ]
         return generation_config
 
 
@@ -616,7 +641,9 @@ class StubLLModel(LLModel):
             generation_params=self.generation_params,
         )
 
-    def instantiate_tokenizer_and_hf_model(self, file_path: str, **kwargs) -> tuple[AutoTokenizer, AutoModelForCausalLM]:
+    def instantiate_tokenizer_and_hf_model(
+        self, file_path: str, **kwargs
+    ) -> tuple[AutoTokenizer, AutoModelForCausalLM]:
         """Constructs the stub tokenizer and stub model"""
         return TokenizerStub(), ModelStub()
 
@@ -629,7 +656,9 @@ class LLModuleWithLinearProbe(nn.Module):
         self.base_model.eval()
         self.config = self.base_model.config
         self.probe = LLModuleWithLinearProbe.instantiate_probe(
-            file_path=file_path, linear_idxs=self.linear_idxs, hidden_size=self.base_model.config.hidden_size
+            file_path=file_path,
+            linear_idxs=self.linear_idxs,
+            hidden_size=self.base_model.config.hidden_size,
         )
         # self.softmax = nn.Softmax(dim=1)
         self.sigmoid = nn.Sigmoid(dim=1)

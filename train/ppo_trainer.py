@@ -1,27 +1,27 @@
 from __future__ import annotations
 
-from data import DataRow, RawDataset, SplitType
-from debate import Debater, DebateRound, Judge, QuestionMetadata
-from models import ArbitraryAttributeModel, Llama3Model, OpenAIModel, OfflineModel, Model, RandomModel, SpeechStructure, StubLLModel
-from prompts import Prompt, PromptConfig, PromptLoadingConfig, PromptParser
-from train.impl import LlamaModelWithGradientCheckpointing, VerbosePPOTrainer
-from train.row_converter import RowConverter
-from train.train_utils import TrainUtils, TrainingConfig, TrainingTarget
-from utils import logger_utils, timer, get_device
-import utils.constants as constants
+import traceback
+from typing import Optional
 
-from datasets import Dataset
-from peft import LoraConfig, prepare_model_for_kbit_training, get_peft_model
+import torch
+import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, GenerationConfig, LlamaModel
 from trl import PPOConfig, PPOTrainer
-import torch.nn.functional as F
-import torch
 
-from typing import Optional
-import traceback
+import utils.constants as constants
+from data import RawDataset, SplitType
+from debate import Debater, DebateRound, Judge, QuestionMetadata
+from models import (
+    OfflineModel,
+    OpenAIModel,
+)
+from prompts import PromptConfig, PromptParser
+from train.impl import LlamaModelWithGradientCheckpointing, VerbosePPOTrainer
+from train.train_utils import TrainingConfig, TrainUtils
+from utils import get_device, logger_utils, timer
 
 try:
-    import bitsandbytes as bnb
+    pass
 except:
     print("Unable to import bitsandbytes")
 
@@ -32,7 +32,7 @@ try:
     )
 
     FLASH_ATTENTION_AVAILABLE = True
-except ImportError as e:
+except ImportError:
     print("Running without flash attention")
     FLASH_ATTENTION_AVAILABLE = False
 
@@ -40,8 +40,8 @@ except ImportError as e:
 def print_available_memory(logger):
     total_memory = torch.cuda.get_device_properties(0).total_memory
     free_memory = total_memory - torch.cuda.memory_allocated(0)
-    logger.warn(f"Total GPU Memory: {total_memory / (1024 ** 3):.2f} GB")
-    logger.warn(f"Free GPU Memory: {free_memory / (1024 ** 3):.2f} GB")
+    logger.warn(f"Total GPU Memory: {total_memory / (1024**3):.2f} GB")
+    logger.warn(f"Free GPU Memory: {free_memory / (1024**3):.2f} GB")
 
 
 # Extended monkeypatch script to fix a bug in PPOTrainer
@@ -59,9 +59,7 @@ class PPOStats:
         self.incorrect_scores = []
 
     def __get_scores(self, scores: list[float], window: int = -1):
-        if window <= 0:
-            return sum(scores) / len(scores) if scores else -1
-        elif window > len(scores):
+        if window <= 0 or window > len(scores):
             return sum(scores) / len(scores) if scores else -1
         else:
             return sum(scores[-window:]) / window if window else -1
@@ -94,7 +92,11 @@ class PPOTrainerWrapper:
     DEFAULT_JUDGE_ALIAS = "openai-judge"
 
     def __init__(
-        self, ppo_trainer: PPOTrainer, config: TrainingConfig, dataset: RawDataset, ref_model: AutoModelForCausalLM
+        self,
+        ppo_trainer: PPOTrainer,
+        config: TrainingConfig,
+        dataset: RawDataset,
+        ref_model: AutoModelForCausalLM,
     ):
         """
         Class for training a model using Proximate Policy Optimization. In order to keep the
@@ -111,7 +113,9 @@ class PPOTrainerWrapper:
         self.ppo_trainer = ppo_trainer
 
         self.reward_model = OpenAIModel(
-            alias=PPOTrainerWrapper.DEFAULT_JUDGE_ALIAS, is_debater=False, endpoint="ft:gpt-4-0613:nyu-arg::90NW3Tbx"
+            alias=PPOTrainerWrapper.DEFAULT_JUDGE_ALIAS,
+            is_debater=False,
+            endpoint="ft:gpt-4-0613:nyu-arg::90NW3Tbx",
         )  # make configurable
 
         """
@@ -168,7 +172,8 @@ class PPOTrainerWrapper:
         ppo_stats = PPOStats()
         for i in range(self.config.training_hyperparameters.steps):
             self.train_single_batch(
-                start_idx=(i * self.config.training_hyperparameters.per_device_train_batch_size), ppo_stats=ppo_stats
+                start_idx=(i * self.config.training_hyperparameters.per_device_train_batch_size),
+                ppo_stats=ppo_stats,
             )
 
             if i > 0 and i % save_frequency == 0:
@@ -275,7 +280,8 @@ class PPOTrainerWrapper:
         internal_model.model = self.ppo_trainer.model
         internal_model.tokenizer = self.ppo_trainer.tokenizer
         internal_model.generation_config = internal_model.create_default_generation_config(
-            is_debater=True, generation_params=GenerationConfig(do_sample=True, use_generation_penalties=False)
+            is_debater=True,
+            generation_params=GenerationConfig(do_sample=True, use_generation_penalties=False),
         )
         internal_model.instantiated_model = True
         internal_model.is_debater = True
@@ -289,7 +295,8 @@ class PPOTrainerWrapper:
         reference_model.model = self.ref_model
         reference_model.tokenizer = self.ppo_trainer.tokenizer
         reference_model.generation_config = reference_model.create_default_generation_config(
-            is_debater=True, generation_params=GenerationConfig(do_sample=True, use_generation_penalties=False)
+            is_debater=True,
+            generation_params=GenerationConfig(do_sample=True, use_generation_penalties=False),
         )
         reference_model.instantiated_model = True
         reference_model.is_debater = True
@@ -419,7 +426,11 @@ class PPOTrainerWrapper:
             judge.transcripts[0].speeches,
         ):
             samples.append(
-                (speech.supplemental.prompt_tokens, speech.supplemental.response_tokens, convert_reward(summary, speech))
+                (
+                    speech.supplemental.prompt_tokens,
+                    speech.supplemental.response_tokens,
+                    convert_reward(summary, speech),
+                )
             )
             add_to_ppo_stats(summary, speech)
 
@@ -499,7 +510,11 @@ class PPOTrainerWrapper:
 
         ppo_trainer = PPOTrainerWrapper(
             ppo_trainer=VerbosePPOTrainer(
-                model=model, config=ppo_config, tokenizer=tokenizer, optimizer=optimizer, lr_scheduler=lr_scheduler
+                model=model,
+                config=ppo_config,
+                tokenizer=tokenizer,
+                optimizer=optimizer,
+                lr_scheduler=lr_scheduler,
             ),
             config=config,
             dataset=raw_dataset,

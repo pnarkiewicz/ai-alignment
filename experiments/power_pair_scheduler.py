@@ -47,7 +47,14 @@ class PowerPairScheduler:
     def __get_debate_map(self, debates: list[DebateRound]) -> dict[str, list[DebateRound]]:
         debate_map = {}
         for debate in debates:
-            key = "_".join(sorted([debate.metadata[0].first_debater_alias, debate.metadata[0].second_debater_alias]))
+            key = "_".join(
+                sorted(
+                    [
+                        debate.metadata[0].first_debater_alias,
+                        debate.metadata[0].second_debater_alias,
+                    ]
+                )
+            )
             if key not in debate_map:
                 debate_map[key] = []
             debate_map[key].append(debate)

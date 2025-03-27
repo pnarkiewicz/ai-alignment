@@ -1,10 +1,12 @@
-import os, sys, json
+import json
+import os
+import sys
 
 src_root = "/Users/samarnesen/nyu/debate/nyu-debate-modeling/"
 os.environ["SRC_ROOT"] = src_root
 sys.path.insert(0, src_root)
 
-from utils import input_utils, InputType
+from utils import InputType, input_utils
 
 output_prefix = "/Users/samarnesen/nyu/scratch/runs/double-consultancy-llama/"
 file_prefix = "2024-04-04_20:45:09.521845"

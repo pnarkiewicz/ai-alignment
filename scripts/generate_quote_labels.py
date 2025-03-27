@@ -2,20 +2,20 @@ from script_utils import ScriptUtils
 
 ScriptUtils.setup_script()
 
-from data import QuoteRelevanceLoader, QuoteRelevanceProcessedBatchItem, QuoteRelevanceTopicInfo
-from models import OpenAIModel, ModelInput
-from prompts import RoleType
-from utils import input_utils
-import utils.constants as constants
+import argparse
+import os
+import pickle
+import random
+import re
 
 from pydantic import BaseModel
 from tqdm import tqdm
 
-import argparse
-import pickle
-import random
-import re
-import os
+import utils.constants as constants
+from data import QuoteRelevanceLoader, QuoteRelevanceProcessedBatchItem, QuoteRelevanceTopicInfo
+from models import ModelInput, OpenAIModel
+from prompts import RoleType
+from utils import input_utils
 
 DEFAULT_INSTRUCTIONS = """
 You will be presented with a topic that is going to be debated by two debaters as part of an educational exercise. 
@@ -109,7 +109,8 @@ def get_topic(text: str):
     question = question_section.group(1).strip()
 
     first_position_section = re.search(
-        r"Debater_A will defend the position that the answer is \"(.*)\s*\"\s*\.\s*Debater_B", matching_text
+        r"Debater_A will defend the position that the answer is \"(.*)\s*\"\s*\.\s*Debater_B",
+        matching_text,
     )
     if not first_position_section:
         return question, first_position, second_position
@@ -131,7 +132,9 @@ def process_scratchpad(scratchpad_text: str):
 
 def process_model_output(output: str, a_quote_list: list[str], b_quote_list: list[str]):
     debater_a_match = re.search(
-        f"{constants.DEFAULT_DEBATER_A_NAME}:(.*?){constants.DEFAULT_DEBATER_A_NAME}:", output, flags=re.DOTALL
+        f"{constants.DEFAULT_DEBATER_A_NAME}:(.*?){constants.DEFAULT_DEBATER_A_NAME}:",
+        output,
+        flags=re.DOTALL,
     )
     debater_a_text = debater_a_match.group(1) if debater_a_match else ""
     debater_b_match = re.search(f"{constants.DEFAULT_DEBATER_B_NAME}:(.*)", output, flags=re.DOTALL)
@@ -209,11 +212,15 @@ if __name__ == "__main__":
 
             for prediction, item in zip(predictions, current_batch):
                 a_quote_map, b_quote_map = process_model_output(
-                    output=prediction, a_quote_list=item.a_quote_list, b_quote_list=item.b_quote_list
+                    output=prediction,
+                    a_quote_list=item.a_quote_list,
+                    b_quote_list=item.b_quote_list,
                 )
                 results.append(
                     QuoteRelevanceProcessedBatchItem(
-                        a_quote_map=a_quote_map, b_quote_map=b_quote_map, question_info=item.question_info
+                        a_quote_map=a_quote_map,
+                        b_quote_map=b_quote_map,
+                        question_info=item.question_info,
                     )
                 )
                 total_score += sum(a_quote_map.values()) + sum(b_quote_map.values())

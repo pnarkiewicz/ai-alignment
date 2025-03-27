@@ -1,14 +1,21 @@
-from data.dataset import DataRow, DatasetType, JudgingProbeDataRow, RawDataLoader, RawDataset, SplitType
-from data.quality_loader import QualityLoader
-from utils import InputType, input_utils, get_device
-import utils.constants as constants
-
-import torch
-
-from typing import Any, Optional
 import base64
 import io
 import json
+from typing import Any, Optional
+
+import torch
+
+import utils.constants as constants
+from data.dataset import (
+    DataRow,
+    DatasetType,
+    JudgingProbeDataRow,
+    RawDataLoader,
+    RawDataset,
+    SplitType,
+)
+from data.quality_loader import QualityLoader
+from utils import InputType, get_device, input_utils
 
 
 class QualityJudgingDataset(RawDataset):
@@ -93,7 +100,8 @@ class QualityJudgingLoader(RawDataLoader):
             data = json.loads(text)
             row = get_original_data_row(data=data, dataset=quality_dataset)
             for speech in filter(
-                lambda x: x["speaker"] == constants.DEFAULT_JUDGE_NAME and x["supplemental"]["internal_representations"],
+                lambda x: x["speaker"] == constants.DEFAULT_JUDGE_NAME
+                and x["supplemental"]["internal_representations"],
                 data["speeches"],
             ):
                 internal_representations = speech["supplemental"]["internal_representations"]

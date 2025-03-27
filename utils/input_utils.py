@@ -1,19 +1,27 @@
-import utils.constants as constants
-
-import pandas as pd
-
-from enum import Enum
-from io import StringIO
-from typing import Callable
 import json
 import os
 import re
+from enum import Enum
+from io import StringIO
+from typing import Callable
+
+import pandas as pd
+
+import utils.constants as constants
 
 
 class InputType(Enum):
     TEXT_TRANSCRIPT = ("txt", os.environ[constants.INPUT_ROOT] + "/transcripts", lambda x: x)
-    JSON_TRANSCRIPT = ("json", os.environ[constants.INPUT_ROOT] + "/transcripts", lambda x: json.loads(x))
-    JSON_LIST = ("jsonl", os.environ[constants.INPUT_ROOT] + "/transcripts", lambda x: [json.load(y) for y in x])
+    JSON_TRANSCRIPT = (
+        "json",
+        os.environ[constants.INPUT_ROOT] + "/transcripts",
+        lambda x: json.loads(x),
+    )
+    JSON_LIST = (
+        "jsonl",
+        os.environ[constants.INPUT_ROOT] + "/transcripts",
+        lambda x: [json.load(y) for y in x],
+    )
     RUN = ("csv", os.environ[constants.INPUT_ROOT] + "/runs", lambda x: pd.read_csv(StringIO(x)))
 
     def __init__(self, extension: str, location: str, load: Callable):

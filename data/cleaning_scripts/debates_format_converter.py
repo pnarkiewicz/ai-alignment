@@ -1,12 +1,11 @@
-"""This script loads debates that John Hughes, Dan Valentine, and Akbir Khan ran with GPT-4 (https://github.com/akbir/debate), 
+"""This script loads debates that John Hughes, Dan Valentine, and Akbir Khan ran with GPT-4 (https://github.com/akbir/debate),
 and reformats them to the format that QualityDebatesLoader expects.
 """
 
 import json
-import pandas as pd
 import re
-import sys
 
+import pandas as pd
 
 """
 external_debate_sources = [
@@ -154,7 +153,7 @@ if __name__ == "__main__":
             f.write("\n")
     """
 
-    with open("data/datasets/quality-debates/debates-readable.jsonl", "r") as human_f:
+    with open("data/datasets/quality-debates/debates-readable.jsonl") as human_f:
         lines = human_f.readlines()
         human_debates = [json.loads(line) for line in lines]
 

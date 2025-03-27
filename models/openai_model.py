@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from models.model import Model, ModelInput, ModelResponse, RoleType, SpeechStructure
-from utils import logger_utils
-import utils.constants as constants
+import math
+import os
+import random
+import re
+from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 import backoff
 import openai
 
-from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
-import os
-import math
-import random
-import re
+import utils.constants as constants
+from models.model import Model, ModelInput, ModelResponse, RoleType, SpeechStructure
+from utils import logger_utils
 
 
 class OpenAIModel(Model):
@@ -97,7 +97,7 @@ class OpenAIModel(Model):
             if match:
                 return match.group(1)
             else:
-                self.logger.warn("The regex {} did not match the following message: {}".format(regex_str, message))
+                self.logger.warn(f"The regex {regex_str} did not match the following message: {message}")
                 return default
 
         def process_logprobs(completion: dict) -> tuple[float, float]:
@@ -158,7 +158,10 @@ class OpenAIModel(Model):
                 prompt="\n".join(model_input.content for model_input in model_input_list),
             )
 
-        return ModelResponse(speech=message, prompt="\n".join(model_input.content for model_input in model_input_list))
+        return ModelResponse(
+            speech=message,
+            prompt="\n".join(model_input.content for model_input in model_input_list),
+        )
 
     @backoff.on_exception(backoff.expo, backoff.on_exception, max_tries=4)
     def call_openai(

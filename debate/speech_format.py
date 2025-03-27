@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from models import ModelResponse
-from prompts import Prompt, PromptTag, RoleType
-import utils.constants as constants
+from enum import Enum, auto
+from typing import Callable, Optional
 
 from pydantic import BaseModel
 
-from abc import ABC
-from enum import Enum, auto
-from typing import Callable, Optional
+import utils.constants as constants
+from models import ModelResponse
+from prompts import PromptTag
 
 
 class Speech(BaseModel):
@@ -56,11 +55,17 @@ class SpeechFormatType(Enum):
         ),
     )
 
-    EMPTY_ROUND = (auto(), lambda name, **kwargs: SpeechFormat.empty_round_debater_format(name=name))
+    EMPTY_ROUND = (
+        auto(),
+        lambda name, **kwargs: SpeechFormat.empty_round_debater_format(name=name),
+    )
 
     EMPTY_ROUND_JUDGE = (auto(), lambda **kwargs: SpeechFormat.empty_round_judge_format())
 
-    OPEN_DEBATE = (auto(), lambda name, **kwargs: SpeechFormat.open_debate_format(name=name, is_debate=True))
+    OPEN_DEBATE = (
+        auto(),
+        lambda name, **kwargs: SpeechFormat.open_debate_format(name=name, is_debate=True),
+    )
 
     OPEN_DEBATE_JUDGE = (
         auto(),
@@ -94,9 +99,23 @@ class SpeechFormatStructure(Enum):
         True,
     )
 
-    EMPTY_ROUND = (3, SpeechFormatType.EMPTY_ROUND, SpeechFormatType.EMPTY_ROUND_JUDGE, "Empty Prompt", 0, True)
+    EMPTY_ROUND = (
+        3,
+        SpeechFormatType.EMPTY_ROUND,
+        SpeechFormatType.EMPTY_ROUND_JUDGE,
+        "Empty Prompt",
+        0,
+        True,
+    )
 
-    OPEN_DEBATE = (4, SpeechFormatType.OPEN_DEBATE, SpeechFormatType.OPEN_DEBATE_JUDGE, "Open Debate Prompt", 1, True)
+    OPEN_DEBATE = (
+        4,
+        SpeechFormatType.OPEN_DEBATE,
+        SpeechFormatType.OPEN_DEBATE_JUDGE,
+        "Open Debate Prompt",
+        1,
+        True,
+    )
 
     def __new__(
         cls,
@@ -154,7 +173,9 @@ class SpeechFormat:
                 speech.
             expected_speaker: The name of the speaker who is to deliver the speech.
         """
-        speech_type = speech_type if speech_type else (SpeechType.PRE_FILLED if prompt_tag else SpeechType.USER_INPUTTED)
+        speech_type = (
+            speech_type if speech_type else (SpeechType.PRE_FILLED if prompt_tag else SpeechType.USER_INPUTTED)
+        )
         self.progression.append(
             SpeechFormatEntry(
                 speech_type=speech_type,
@@ -193,7 +214,12 @@ class SpeechFormat:
         if self.idx < len(self.progression):
             entry = self.progression[self.idx]
             self.idx += 1
-            return entry.speech_type, entry.prompt_tag, entry.last_only_prompt_tag, entry.expected_speaker
+            return (
+                entry.speech_type,
+                entry.prompt_tag,
+                entry.last_only_prompt_tag,
+                entry.expected_speaker,
+            )
         else:
             raise StopIteration
 
@@ -214,7 +240,10 @@ class SpeechFormat:
 
         scratchpad = (
             SpeechFormat(name)
-            .add(prompt_tag=PromptTag.PREVIOUS_DEBATER_SCRATCHPAD, last_only_prompt_tag=PromptTag.DEBATER_SCRATCHPAD)
+            .add(
+                prompt_tag=PromptTag.PREVIOUS_DEBATER_SCRATCHPAD,
+                last_only_prompt_tag=PromptTag.DEBATER_SCRATCHPAD,
+            )
             .add_user_inputted_speech(expected_speaker=name)
         )
         own_speech = (
@@ -238,7 +267,9 @@ class SpeechFormat:
             .add_format(speech_format=opponent_speech)
         )
 
-        later_arguments = SpeechFormat(name).add_format(speech_format=own_speech).add_format(speech_format=opponent_speech)
+        later_arguments = (
+            SpeechFormat(name).add_format(speech_format=own_speech).add_format(speech_format=opponent_speech)
+        )
 
         decision = (
             SpeechFormat(name)
@@ -302,7 +333,10 @@ class SpeechFormat:
 
         scratchpad = (
             SpeechFormat(name)
-            .add(prompt_tag=PromptTag.PREVIOUS_DEBATER_SCRATCHPAD, last_only_prompt_tag=PromptTag.DEBATER_SCRATCHPAD)
+            .add(
+                prompt_tag=PromptTag.PREVIOUS_DEBATER_SCRATCHPAD,
+                last_only_prompt_tag=PromptTag.DEBATER_SCRATCHPAD,
+            )
             .add_user_inputted_speech(expected_speaker=name)
         )
         own_speech = (
@@ -389,7 +423,9 @@ class SpeechFormat:
     def open_debate_format(cls, name: str, flipped: bool = False, is_debate: bool = True, **kwargs) -> SpeechFormat:
         """Generates the order of speeches that the open debater expects to receive"""
         name_to_use = (
-            name if is_debate else (constants.DEFAULT_DEBATER_A_NAME if not flipped else constants.DEFAULT_DEBATER_B_NAME)
+            name
+            if is_debate
+            else (constants.DEFAULT_DEBATER_A_NAME if not flipped else constants.DEFAULT_DEBATER_B_NAME)
         )
         return (
             SpeechFormat(name, tokens_per_speech=2)

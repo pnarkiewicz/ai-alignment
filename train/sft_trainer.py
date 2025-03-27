@@ -1,24 +1,27 @@
+from typing import Any, Optional
+
+import datasets
+import pandas as pd
+import torch
+from peft import get_peft_model
+from transformers import AutoTokenizer, TrainingArguments
+from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
+
 from data import DatasetConfig, RawDataset
 from models import LLModel, ModelInput, SpeechStructure
 from prompts import RoleType
 from train.row_converter import RowConverter
-from train.train_utils import TrainUtils, TrainingConfig, TrainingTarget
+from train.train_utils import TrainingConfig, TrainingTarget, TrainUtils
 from utils import LoggingCallback
 
-from peft import get_peft_model
-from transformers import AutoTokenizer, TrainingArguments
-from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
-import pandas as pd
-import datasets
-import torch
-
-from typing import Any, Optional
-
 try:
-    from utils.flash_attn_utils import replace_attn_with_flash_attn, upcast_layer_for_flash_attention
+    from utils.flash_attn_utils import (
+        replace_attn_with_flash_attn,
+        upcast_layer_for_flash_attention,
+    )
 
     FLASH_ATTENTION_AVAILABLE = True
-except ImportError as e:
+except ImportError:
     print("Running without flash attention")
     FLASH_ATTENTION_AVAILABLE = False
 

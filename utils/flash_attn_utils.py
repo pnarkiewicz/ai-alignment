@@ -4,27 +4,20 @@
 # flash decoder work copied from
 # https://github.com/ymcui/Chinese-LLaMA-Alpaca-2/
 
-from typing import List, Optional, Tuple
-from functools import partial
 
 import torch
-from torch import nn
-import torch.nn.functional as F
-import warnings
 import transformers
-from transformers.models.llama.modeling_llama import apply_rotary_pos_emb
 from peft.tuners.lora import LoraLayer
 
 try:
-    from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func, flash_attn_with_kvcache
-    from flash_attn.bert_padding import unpad_input, pad_input
+    pass
 except Exception:
     raise ModuleNotFoundError(
         "Please install FlashAttention first, e.g., with pip install flash-attn --no-build-isolation, Learn more at https://github.com/Dao-AILab/flash-attention#installation-and-features"
     )
 
 try:
-    from einops import rearrange
+    pass
 except Exception:
     raise ModuleNotFoundError("Please install einops first, e.g., with pip install einops")
 
@@ -44,13 +37,20 @@ def flash_attn_forward_without_dropout(
     past_key_value=None,
     output_attentions=False,
     use_cache=False,
-    **kwargs
+    **kwargs,
 ):
     original_fwd = transformers.models.llama.modeling_llama.LlamaModel.LlamaFlashAttention2.forward
     original_training_status = self.training
     self.training = False
     result = original_fwd(
-        self, hidden_states, attention_mask, position_ids, past_key_value, output_attentions, use_cache, **kwargs
+        self,
+        hidden_states,
+        attention_mask,
+        position_ids,
+        past_key_value,
+        output_attentions,
+        use_cache,
+        **kwargs,
     )
     self.training = original_training_status
     return result
@@ -58,9 +58,13 @@ def flash_attn_forward_without_dropout(
 
 def replace_attn_with_flash_attn(disable_dropout: bool = False):
     cuda_major, cuda_minor = torch.cuda.get_device_capability()
-    transformers.models.llama.modeling_llama.LlamaModel._prepare_decoder_attention_mask = _prepare_decoder_attention_mask
+    transformers.models.llama.modeling_llama.LlamaModel._prepare_decoder_attention_mask = (
+        _prepare_decoder_attention_mask
+    )
     if disable_dropout:
-        transformers.models.llama.modeling_llama.LlamaModel.LlamaFlashAttention2.forward = flash_attn_forward_without_dropout
+        transformers.models.llama.modeling_llama.LlamaModel.LlamaFlashAttention2.forward = (
+            flash_attn_forward_without_dropout
+        )
 
 
 # Adapted from https://github.com/tmm1/axolotl/blob/2eda9e02a9d15a7a3f92b41f257d9844d72fc220/src/axolotl/utils/models.py#L338

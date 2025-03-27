@@ -2,10 +2,10 @@ from script_utils import ScriptUtils
 
 ScriptUtils.setup_script()
 
+from datetime import datetime
+
 from experiments import ExperimentLoader, ResultsCollector
 from utils import logger_utils
-
-from datetime import datetime
 
 args = ScriptUtils.get_args()
 config = ScriptUtils.get_debate_round_script_config(args)
@@ -15,7 +15,9 @@ should_save_transcripts = not args.local or args.force_save_transcripts
 should_save_results = (not args.local) or args.force_save_results
 
 debate_rounds, experiment = ExperimentLoader.generate_debate_rounds(
-    experiment_file_path=config.experiment_file_path, name=config.experiment_name, count=args.num_iters
+    experiment_file_path=config.experiment_file_path,
+    name=config.experiment_name,
+    count=args.num_iters,
 )
 
 results_collector = ResultsCollector(

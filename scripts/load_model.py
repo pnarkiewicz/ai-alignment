@@ -1,9 +1,9 @@
-from dotenv import load_dotenv
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
-
 import argparse
 import os
+
+import torch
+from dotenv import load_dotenv
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_name", type=str)

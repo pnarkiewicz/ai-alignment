@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from models.model import Model, ModelInput, ModelResponse, SpeechStructure
-import utils.constants as constants
-from utils import logger_utils
-
-from typing import Optional
 import random
+from typing import Optional
+
+import utils.constants as constants
+from models.model import Model, ModelInput, ModelResponse, SpeechStructure
+from utils import logger_utils
 
 
 class RandomModel(Model):
@@ -94,7 +94,8 @@ class RandomModel(Model):
         num_return_sequences = max(num_return_sequences, len(inputs))
         return [
             ModelResponse(
-                speech=generate_random_text(), prompt="\n".join([model_input.content for model_input in inputs[i]])
+                speech=generate_random_text(),
+                prompt="\n".join([model_input.content for model_input in inputs[i]]),
             )
             for i in range(num_return_sequences)
         ]

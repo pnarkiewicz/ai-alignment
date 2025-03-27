@@ -1,14 +1,15 @@
-from data.dataset import DataRow, DatasetType, RawDataLoader, SpeechData, SplitType
-from data.quality_debates_loader import QualityDebatesLoader, QualityDebatesDataset, QualityTranscriptsLoader
-from utils import quote_utils
-import utils.constants as constants
-
-from tqdm import tqdm
-
-from typing import Any, Optional
 import os
 import pickle
-import re
+from typing import Any, Optional
+
+import utils.constants as constants
+from data.dataset import DataRow, DatasetType, RawDataLoader, SpeechData, SplitType
+from data.quality_debates_loader import (
+    QualityDebatesDataset,
+    QualityDebatesLoader,
+    QualityTranscriptsLoader,
+)
+from utils import quote_utils
 
 
 class ScratchpadQualityDebatesDataset(QualityDebatesDataset):
@@ -42,7 +43,8 @@ class ScratchpadQualityDebatesDataset(QualityDebatesDataset):
                 context_size=ScratchpadQualityDebatesDataset.CONTEXT_SIZE,
             )
             for quote in filter(
-                lambda x: len(x.split()) >= ScratchpadQualityDebatesDataset.MINIMUM_QUOTE_LENGTH, original_quotes
+                lambda x: len(x.split()) >= ScratchpadQualityDebatesDataset.MINIMUM_QUOTE_LENGTH,
+                original_quotes,
             )
         ]
         speech.scratchpad = (

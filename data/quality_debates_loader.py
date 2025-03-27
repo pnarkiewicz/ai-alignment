@@ -1,12 +1,19 @@
-from data.dataset import DataRow, DatasetType, RawDataLoader, RawDataset, SpeakerType, SpeechData, SplitType
-from utils import input_utils, quote_utils
-import utils.constants as constants
-
-from typing import Any, Callable, Optional, Type
 import json
 import os
 import re
-import sys  # TODO: remove
+from typing import Any, Callable, Optional, Type
+
+import utils.constants as constants
+from data.dataset import (
+    DataRow,
+    DatasetType,
+    RawDataLoader,
+    RawDataset,
+    SpeakerType,
+    SpeechData,
+    SplitType,
+)
+from utils import input_utils, quote_utils
 
 
 class QualityDebatesDataset(RawDataset):
@@ -74,7 +81,8 @@ class QualityDebatesDataset(RawDataset):
         judge_probs = entry["turns"][-1]["probabilities"]
         judge_correct = entry["isJudgeCorrect"]
         judge_probs = [
-            turn["probabilities"] for turn in filter(lambda x: "Judge" in x["role"] and x["probabilities"], entry["turns"])
+            turn["probabilities"]
+            for turn in filter(lambda x: "Judge" in x["role"] and x["probabilities"], entry["turns"])
         ][-1]
         return (
             0
@@ -135,13 +143,21 @@ class QualityModelBasedDebateDataset(QualityDebatesDataset):
         test_data: list[str, Any],
         override_type: Optional[DatasetType] = None,
     ):
-        super().__init__(train_data=train_data, val_data=val_data, test_data=test_data, override_type=override_type)
+        super().__init__(
+            train_data=train_data,
+            val_data=val_data,
+            test_data=test_data,
+            override_type=override_type,
+        )
 
     def example_to_row(self, entry: dict[str, Any]) -> tuple[str, Any]:
         return DataRow(
             background_text=super().fix_line_spacing(entry["metadata"]["background_text"]),
             question=entry["metadata"]["question"].replace("\n", " "),
-            positions=[entry["metadata"]["first_debater_answer"], entry["metadata"]["second_debater_answer"]],
+            positions=[
+                entry["metadata"]["first_debater_answer"],
+                entry["metadata"]["second_debater_answer"],
+            ],
             speeches=[
                 SpeechData(
                     text=QualityDebatesDataset.clean_text(speech["content"]),
@@ -157,7 +173,11 @@ class QualityModelBasedDebateDataset(QualityDebatesDataset):
                 )
                 for speech in filter(
                     lambda x: x["speaker"]
-                    in [constants.DEFAULT_DEBATER_A_NAME, constants.DEFAULT_DEBATER_B_NAME, constants.DEFAULT_JUDGE_NAME],
+                    in [
+                        constants.DEFAULT_DEBATER_A_NAME,
+                        constants.DEFAULT_DEBATER_B_NAME,
+                        constants.DEFAULT_JUDGE_NAME,
+                    ],
                     entry["speeches"],
                 )
             ],
@@ -260,7 +280,9 @@ class QualityTranscriptsLoader:
         """Constructs a QualityDebatesDataset"""
         full_dataset_filepath = full_dataset_filepath or QualityTranscriptsLoader.DEFAULT_FILE_PATH
         train, val, test = constructor_cls.get_splits(
-            file_path=full_dataset_filepath, deduplicate=deduplicate, combine_train_and_val=combine_train_and_val
+            file_path=full_dataset_filepath,
+            deduplicate=deduplicate,
+            combine_train_and_val=combine_train_and_val,
         )
         return QualityDebatesDataset(
             train_data=train,
@@ -275,7 +297,9 @@ class QualityConsultancyLoader(RawDataLoader):
         def should_keep(row: dict[str, Any]) -> bool:
             roles = [turn["role"] for turn in row["turns"]]
             positions = set([turn.get("index") for turn in filter(lambda x: x.get("index") is not None, row["turns"])])
-            return len(set(roles)) >= 2 and "GPT-4" not in roles and "Offline Judge" not in roles and len(positions) == 1
+            return (
+                len(set(roles)) >= 2 and "GPT-4" not in roles and "Offline Judge" not in roles and len(positions) == 1
+            )
 
         return QualityTranscriptsLoader.get_splits(
             file_path=file_path,

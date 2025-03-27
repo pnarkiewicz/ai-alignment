@@ -6,10 +6,8 @@ from .speech_format import (
     Speech,
     SpeechFormat,
     SpeechFormatEntry,
-    SpeechType,
-    SpeechFormat,
-    SpeechFormatEntry,
     SpeechFormatStructure,
     SpeechFormatType,
+    SpeechType,
 )
 from .transcript import Transcript

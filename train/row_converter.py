@@ -1,12 +1,12 @@
-from debate import SpeechFormatStructure, Transcript
+import copy
+from typing import Callable, Optional
+
+import utils.constants as constants
 from data import DataRow, RawDataset, SpeakerType, SpeechData
+from debate import SpeechFormatStructure, Transcript
 from models import LLMType, ModelInput
 from prompts import Prompt, PromptParser
 from train.train_utils import TrainingConfig, TrainingTarget
-import utils.constants as constants
-
-from typing import Callable, Optional
-import copy
 
 
 class RowConverter:
@@ -93,7 +93,9 @@ class RowConverter:
                 continue
             only_judge_has_spoken = False
 
-            if speech.speaker_type == SpeakerType.JUDGE and (previous_speaker_type == SpeakerType.DEBATER or not is_debater):
+            if speech.speaker_type == SpeakerType.JUDGE and (
+                previous_speaker_type == SpeakerType.DEBATER or not is_debater
+            ):
                 rounds += 1
 
             if config.opening_speeches_only and rounds > (1 if is_debater else 2):
@@ -105,7 +107,11 @@ class RowConverter:
 
             name = RowConverter.get_speaker_from_speech(speech)
             prompt = RowConverter.generate_prompt_from_speech(
-                row=row, speech=speech, config=config, dataset=dataset, speech_structure=speech_structure
+                row=row,
+                speech=speech,
+                config=config,
+                dataset=dataset,
+                speech_structure=speech_structure,
             )
 
             transcript = Transcript(
@@ -113,11 +119,16 @@ class RowConverter:
                 prompt=prompt,
                 speech_format=(
                     speech_structure.debater_format.get_speech_format(
-                        name=name, num_speeches=rounds, use_scratchpad=config.scratchpad_config.use_scratchpad
+                        name=name,
+                        num_speeches=rounds,
+                        use_scratchpad=config.scratchpad_config.use_scratchpad,
                     )
                     if is_debater
                     else speech_structure.judge_format.get_speech_format(
-                        name=constants.DEFAULT_JUDGE_NAME, num_speeches=(rounds - 1), use_scratchpad=False, flipped=False
+                        name=constants.DEFAULT_JUDGE_NAME,
+                        num_speeches=(rounds - 1),
+                        use_scratchpad=False,
+                        flipped=False,
                     )
                 ),
                 alternate_prompts=True,
@@ -177,7 +188,10 @@ class RowConverter:
                 prompt=prompt,
                 speech_format=(
                     speech_structure.judge_format.get_speech_format(
-                        name=constants.DEFAULT_JUDGE_NAME, num_speeches=0, use_scratchpad=False, flipped=False
+                        name=constants.DEFAULT_JUDGE_NAME,
+                        num_speeches=0,
+                        use_scratchpad=False,
+                        flipped=False,
                     )
                 ),
                 alternate_prompts=True,
@@ -246,7 +260,9 @@ class RowConverter:
     ) -> list[list[ModelInput]]:
         """Returns a list of inputs that can be used as rows in an actual training dataset. See
         convert_transcript() for more details"""
-        if (target and target == TrainingTarget.DEBATER) or (target is None and config.target == TrainingTarget.DEBATER):
+        if (target and target == TrainingTarget.DEBATER) or (
+            target is None and config.target == TrainingTarget.DEBATER
+        ):
             return RowConverter.convert_all_speeches_for_debater(
                 row=row, config=config, dataset=dataset, speech_structure=speech_structure
             )

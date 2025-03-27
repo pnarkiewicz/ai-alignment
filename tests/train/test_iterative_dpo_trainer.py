@@ -1,7 +1,9 @@
-import pytest
 import tempfile
-from train.train_utils import TrainUtils
+
+import pytest
+
 from models.deterministic_model import DeterministicModel
+from train.train_utils import TrainUtils
 
 CONFIG_YAML = """
 TestDeterministic: 

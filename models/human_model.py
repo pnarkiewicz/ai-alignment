@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from models.model import Model, ModelInput, ModelResponse
-from data import SpeakerType, SpeechData
-from utils import logger_utils
-import utils.constants as constants
-
 from typing import Optional
+
+import utils.constants as constants
+from data import SpeakerType, SpeechData
+from models.model import Model, ModelInput, ModelResponse
+from utils import logger_utils
 
 
 class HumanModel(Model):
@@ -22,7 +22,8 @@ class HumanModel(Model):
         super().__init__(alias=alias, is_debater=is_debater)
         position = 0 if debater_name == constants.DEFAULT_DEBATER_A_NAME else 1
         self.speeches = [
-            speech for speech in filter(lambda x: x.speaker_type == SpeakerType.DEBATER and x.position == position, speeches)
+            speech
+            for speech in filter(lambda x: x.speaker_type == SpeakerType.DEBATER and x.position == position, speeches)
         ]
         self.speech_idx = 0
         self.debater_name = debater_name
@@ -57,4 +58,9 @@ class HumanModel(Model):
 
     def copy(self, alias: str, is_debater: Optional[bool] = None, **kwargs) -> HumanModel:
         """Generates a deepcopy of this model"""
-        return HumanModel(alias=alias, is_debater=is_debater, debater_name=self.debater_name, speeches=self.speeches)
+        return HumanModel(
+            alias=alias,
+            is_debater=is_debater,
+            debater_name=self.debater_name,
+            speeches=self.speeches,
+        )

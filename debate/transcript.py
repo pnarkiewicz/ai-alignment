@@ -1,21 +1,23 @@
 from __future__ import annotations
 
-from debate.speech_format import Speech, SpeechType, SpeechFormatEntry, SpeechFormat
-from models import ModelInput, ModelResponse
-from prompts import Prompt, RoleType
-import utils.constants as constants
-
-from pydantic import BaseModel
-
-from enum import Enum
-from typing import Any, Callable, Optional, Union
 import copy
 import json
+from typing import Any, Optional
+
+import utils.constants as constants
+from debate.speech_format import Speech, SpeechFormat, SpeechType
+from models import ModelInput, ModelResponse
+from prompts import Prompt, RoleType
 
 
 class Transcript:
     def __init__(
-        self, name: str, prompt: Prompt, speech_format: SpeechFormat, index: int = 0, alternate_prompts: bool = False
+        self,
+        name: str,
+        prompt: Prompt,
+        speech_format: SpeechFormat,
+        index: int = 0,
+        alternate_prompts: bool = False,
     ):
         """
         An abstraction that tracks the commands and speeches delivered in the round. This can then
@@ -40,7 +42,10 @@ class Transcript:
         self.speeches = []
 
     def add_speech(
-        self, speaker: str, content: str, supplemental: Optional[ModelResponse | list[ModelResponse]] = None
+        self,
+        speaker: str,
+        content: str,
+        supplemental: Optional[ModelResponse | list[ModelResponse]] = None,
     ) -> None:
         """
         Adds an agent-generated speech to the transcript
@@ -67,7 +72,8 @@ class Transcript:
         def add_to_model_inputs(model_inputs: list[ModelInput], new_addition: ModelInput) -> None:
             if model_inputs and model_inputs[-1].role == new_addition.role:
                 model_inputs[-1] = ModelInput(
-                    role=new_addition.role, content=f"{model_inputs[-1].content}\n\n{new_addition.content}"
+                    role=new_addition.role,
+                    content=f"{model_inputs[-1].content}\n\n{new_addition.content}",
                 )
             else:
                 model_inputs.append(new_addition)
@@ -80,7 +86,9 @@ class Transcript:
                     prompt_tag if (index < len(self.speeches) or not last_only_prompt_tag) else last_only_prompt_tag
                 )
 
-                content_idx = index % len(self.prompt.messages[prompt_tag_to_use].content) if self.alternate_prompts else 0
+                content_idx = (
+                    index % len(self.prompt.messages[prompt_tag_to_use].content) if self.alternate_prompts else 0
+                )
                 add_to_model_inputs(
                     model_inputs,
                     ModelInput(
@@ -124,14 +132,18 @@ class Transcript:
 
     def get_next_expected_speaker(self) -> Optional[str]:
         """Gets the name of the next agent that is expected to deliver a speech"""
-        expected_speakers = [expected_speaker for _, _, _, expected_speaker in filter(lambda x: x[-1], self.speech_format)]
+        expected_speakers = [
+            expected_speaker for _, _, _, expected_speaker in filter(lambda x: x[-1], self.speech_format)
+        ]
         next_speaker = expected_speakers[len(self.speeches)] if len(self.speeches) < len(expected_speakers) else None
         return next_speaker
 
     def only_decision_remains(self) -> bool:
         """Returns true if there are no more speeches that are expected to be delivered besides the
         judge's final verdict"""
-        expected_speakers = [expected_speaker for _, _, _, expected_speaker in filter(lambda x: x[-1], self.speech_format)]
+        expected_speakers = [
+            expected_speaker for _, _, _, expected_speaker in filter(lambda x: x[-1], self.speech_format)
+        ]
         remaining_speakers = (
             set(expected_speakers[len(self.speeches) :]) if len(self.speeches) < len(expected_speakers) else set()
         )
@@ -163,7 +175,9 @@ class Transcript:
         for i, (speech_type, prompt_tag, _, expected_speaker) in enumerate(self.speech_format):
             supplemental = None
             if speech_type == SpeechType.PRE_FILLED:
-                content = self.prompt.messages[prompt_tag].content[index % len(self.prompt.messages[prompt_tag].content)]
+                content = self.prompt.messages[prompt_tag].content[
+                    index % len(self.prompt.messages[prompt_tag].content)
+                ]
             else:
                 if index >= len(self.speeches):
                     break
@@ -171,7 +185,9 @@ class Transcript:
                 supplemental = clean(self.speeches[index].supplemental)
                 # supplemental = {k: v for k, v in filter(lambda x: "token" not in x, self.speeches[index].supplemental)}
                 index += 1
-            speeches.append(Speech(speaker=expected_speaker or "Prompt", content=content, supplemental=supplemental).dict())
+            speeches.append(
+                Speech(speaker=expected_speaker or "Prompt", content=content, supplemental=supplemental).dict()
+            )
 
         return {"metadata": metadata, "speeches": speeches}
 
@@ -210,7 +226,9 @@ class Transcript:
         if not debaters_only:
             return len(self.speeches)
         else:
-            return len([speech for speech in filter(lambda x: x.speaker != constants.DEFAULT_JUDGE_NAME, self.speeches)])
+            return len(
+                [speech for speech in filter(lambda x: x.speaker != constants.DEFAULT_JUDGE_NAME, self.speeches)]
+            )
 
     def __str__(self):
         """Shorter string representation as compared to full_string_value()"""

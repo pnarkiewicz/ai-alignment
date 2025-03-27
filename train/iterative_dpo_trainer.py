@@ -1,6 +1,12 @@
+import pandas as pd
+import torch
+from datasets import Dataset
+from transformers import TrainingArguments
+
+import utils.constants as constants
 from data import (
-    JudgePreferencesLoader,
     JudgePreferencesDataset,
+    JudgePreferencesLoader,
     RawDataset,
     RewardType,
     SplitType,
@@ -10,19 +16,11 @@ from models import (
     BestOfNConfig,
     GenerationParams,
     RandomModel,
-    ArbitraryAttributeModel,
 )
 from prompts import PromptConfig, PromptParser
 from train.impl import SmoothedDPOTrainer
-from train.train_utils import TrainUtils, TrainingConfig
+from train.train_utils import TrainingConfig, TrainUtils
 from utils import LoggingCallback, logger_utils
-import utils.constants as constants
-
-from datasets import Dataset
-from transformers import TrainingArguments
-import pandas as pd
-import torch
-
 from utils.constants import DEBUG
 
 try:
@@ -41,9 +39,7 @@ class IterativeDirectPreferenceTrainer:
 
     DEFAULT_DEBATER_ALIAS = "default-debater"
 
-    def __init__(
-        self, config: TrainingConfig, smooth: bool = True, is_local: bool = False
-    ):
+    def __init__(self, config: TrainingConfig, smooth: bool = True, is_local: bool = False):
         self.logger = logger_utils.get_default_logger(__name__)
         self.is_local = is_local
         self.tokenizer = TrainUtils.get_tokenizer(config=config, is_local=is_local)
@@ -51,17 +47,11 @@ class IterativeDirectPreferenceTrainer:
             config=config,
             is_local=is_local,
             requires_value_head=False,
-            load_as_peft_model=bool(
-                config.training_hyperparameters.supplemental.get(
-                    "force_sft_as_reference", False
-                )
-            ),
+            load_as_peft_model=bool(config.training_hyperparameters.supplemental.get("force_sft_as_reference", False)),
         )
 
         self.judge_model = TrainUtils.load_judge_model(config, is_local=is_local)
-        self.random_judge_model = RandomModel(
-            alias="default-random-judge", is_debater=False
-        )
+        self.random_judge_model = RandomModel(alias="default-random-judge", is_debater=False)
 
         if FLASH_ATTENTION_AVAILABLE:
             self.model = upcast_layer_for_flash_attention(self.model, torch.bfloat16)
@@ -73,9 +63,7 @@ class IterativeDirectPreferenceTrainer:
             config.training_hyperparameters.supplemental
             and "reward_type" in config.training_hyperparameters.supplemental
         ):
-            reward_type = RewardType[
-                config.training_hyperparameters.supplemental["reward_type"].upper()
-            ]
+            reward_type = RewardType[config.training_hyperparameters.supplemental["reward_type"].upper()]
 
         reward_type_args = {}
         if config.training_hyperparameters.supplemental:
@@ -84,13 +72,9 @@ class IterativeDirectPreferenceTrainer:
                 lambda x: x in config.training_hyperparameters.supplemental,
                 eligible_params,
             ):
-                reward_type_args[param] = config.training_hyperparameters.supplemental[
-                    param
-                ]
+                reward_type_args[param] = config.training_hyperparameters.supplemental[param]
 
-        datasets = TrainUtils.create_datasets(
-            config=config, reward_type=reward_type, **reward_type_args
-        )
+        datasets = TrainUtils.create_datasets(config=config, reward_type=reward_type, **reward_type_args)
         self.dataset = datasets[0]
         if len(datasets) > 1:
             for other in datasets[1:]:
@@ -112,25 +96,13 @@ class IterativeDirectPreferenceTrainer:
             self.step(epoch=epoch, epoch_size=epoch_size)
 
     def step(self, epoch: int, epoch_size: int):
-        output_suffix = (
-            f"/checkpoint-{epoch}"
-            if epoch < self.config.training_hyperparameters.steps - 1
-            else ""
-        )
-        output_name = (
-            f"{self.config.logging_and_saving_config.output_dir}{output_suffix}"
-        )
-        lr_multiplier = self.config.training_hyperparameters.supplemental.get(
-            "lr_multiplier", 1
-        )
-        loss_type = self.config.training_hyperparameters.supplemental.get(
-            "loss_type", "bon"
-        )
+        output_suffix = f"/checkpoint-{epoch}" if epoch < self.config.training_hyperparameters.steps - 1 else ""
+        output_name = f"{self.config.logging_and_saving_config.output_dir}{output_suffix}"
+        lr_multiplier = self.config.training_hyperparameters.supplemental.get("lr_multiplier", 1)
+        loss_type = self.config.training_hyperparameters.supplemental.get("loss_type", "bon")
         num_train_epochs = (
             self.config.training_hyperparameters.num_train_epochs
-            if not self.config.training_hyperparameters.supplemental.get(
-                "continue_training", False
-            )
+            if not self.config.training_hyperparameters.supplemental.get("continue_training", False)
             else self.config.training_hyperparameters.num_train_epochs + 1
         )
         training_args = TrainingArguments(
@@ -146,29 +118,18 @@ class IterativeDirectPreferenceTrainer:
                 and self.config.training_hyperparameters.num_train_epochs == 1
                 else "steps"
             ),
-            save_steps=self.config.training_hyperparameters.supplemental.get(
-                "save_steps", 64
-            ),
-            learning_rate=self.config.training_hyperparameters.learning_rate
-            * (lr_multiplier**epoch),
+            save_steps=self.config.training_hyperparameters.supplemental.get("save_steps", 64),
+            learning_rate=self.config.training_hyperparameters.learning_rate * (lr_multiplier**epoch),
             disable_tqdm=False,
             ddp_find_unused_parameters=False,
             optim=self.config.training_hyperparameters.optim,
             lr_scheduler_type=self.config.training_hyperparameters.lr_scheduler_type,
-            warmup_ratio=(
-                0
-                if self.config.training_hyperparameters.lr_scheduler_type == "constant"
-                else 1 / 24
-            ),
+            warmup_ratio=(0 if self.config.training_hyperparameters.lr_scheduler_type == "constant" else 1 / 24),
             max_steps=(
                 -1
                 if self.config.training_hyperparameters.lr_scheduler_type == "constant"
                 else int(
-                    (
-                        2
-                        * epoch_size
-                        * self.config.training_hyperparameters.num_train_epochs
-                    )
+                    (2 * epoch_size * self.config.training_hyperparameters.num_train_epochs)
                     // (
                         self.config.training_hyperparameters.per_device_train_batch_size
                         * self.config.training_hyperparameters.gradient_accumulation_steps
@@ -178,40 +139,28 @@ class IterativeDirectPreferenceTrainer:
             use_cpu=self.is_local,
         )
         self.logger.warn(f"Generating samples for epoch {epoch}")
-        train_dataset = self.get_samples(
-            start_idx=epoch * epoch_size, epoch_size=epoch_size
-        )
+        train_dataset = self.get_samples(start_idx=epoch * epoch_size, epoch_size=epoch_size)
         self.logger.warn(f"Training for epoch {epoch} with loss type {loss_type}")
 
         dpo_train_args = {
             "model": self.model,
             "ref_model": None,
             "loss_type": loss_type,
-            "max_length": (
-                2048 if DEBUG else 16384
-            ),  # [pikaminski] lower than 2048 is problematic
+            "max_length": (2048 if DEBUG else 16384),  # [pikaminski] lower than 2048 is problematic
             "max_prompt_length": 2048 if DEBUG else 16384,
             "beta": self.config.training_hyperparameters.kl_penalty,
-            "alpha": self.config.training_hyperparameters.supplemental.get(
-                "alpha", 0.005
-            ),
+            "alpha": self.config.training_hyperparameters.supplemental.get("alpha", 0.005),
             "args": training_args,
             "train_dataset": train_dataset,
             "tokenizer": self.tokenizer,
             "peft_config": self.peft_config,
             "callbacks": [LoggingCallback],
-            "ignore_peft": bool(
-                self.config.training_hyperparameters.supplemental.get(
-                    "force_sft_as_reference", False
-                )
-            ),
+            "ignore_peft": bool(self.config.training_hyperparameters.supplemental.get("force_sft_as_reference", False)),
         }
 
         trainer = SmoothedDPOTrainer(**dpo_train_args)
 
-        if self.config.training_hyperparameters.supplemental.get(
-            "continue_training", False
-        ):
+        if self.config.training_hyperparameters.supplemental.get("continue_training", False):
             trainer.train(resume_from_checkpoint=self.config.model_name)
         else:
             trainer.train()
@@ -228,9 +177,7 @@ class IterativeDirectPreferenceTrainer:
             new_samples = self.generate_one_round_samples(idx=start_idx + i)
             samples.extend(new_samples)
 
-        return self.convert_dataset(
-            [JudgePreferencesDataset(train_data=samples, val_data=[], test_data=[])]
-        )
+        return self.convert_dataset([JudgePreferencesDataset(train_data=samples, val_data=[], test_data=[])])
 
     def generate_one_round_samples(self, idx: int):
         self.logger.warn(f"Starting round {idx}")
@@ -244,10 +191,8 @@ class IterativeDirectPreferenceTrainer:
         )
         internal_model.model = self.model
         internal_model.tokenizer = self.tokenizer
-        internal_model.generation_config = (
-            internal_model.create_default_generation_config(
-                is_debater=True, generation_params=GenerationParams()
-            )
+        internal_model.generation_config = internal_model.create_default_generation_config(
+            is_debater=True, generation_params=GenerationParams()
         )
         internal_model.instantiated_model = True
         internal_model.is_debater = True
@@ -282,22 +227,19 @@ class IterativeDirectPreferenceTrainer:
         prompt_a = PromptParser.parse(
             prompt_config=config_a,
             prompts_file_path=self.config.prompt_config.file_path,
-            name=self.config.speech_structure[0].default_prompt_name
-            or self.config.prompt_config.default_prompt_name,
+            name=self.config.speech_structure[0].default_prompt_name or self.config.prompt_config.default_prompt_name,
         )
 
         prompt_b = PromptParser.parse(
             prompt_config=config_b,
             prompts_file_path=self.config.prompt_config.file_path,
-            name=self.config.speech_structure[0].default_prompt_name
-            or self.config.prompt_config.default_prompt_name,
+            name=self.config.speech_structure[0].default_prompt_name or self.config.prompt_config.default_prompt_name,
         )
 
         prompt_judge = PromptParser.parse(
             prompt_config=config_a,
             prompts_file_path=self.config.prompt_config.file_path,
-            name=self.config.speech_structure[0].default_prompt_name
-            or self.config.prompt_config.default_prompt_name,
+            name=self.config.speech_structure[0].default_prompt_name or self.config.prompt_config.default_prompt_name,
         )
 
         question_metadata = QuestionMetadata(
@@ -310,18 +252,14 @@ class IterativeDirectPreferenceTrainer:
             debate_identifier=debate_identifier,
         )
 
-        num_speeches = int(
-            self.config.training_hyperparameters.supplemental.get("num_speeches", 1)
-        )
+        num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
 
         original_debater_a = Debater(
             name=constants.DEFAULT_DEBATER_A_NAME,
             prompt=prompt_a,
             model=internal_model,
             num_speeches=num_speeches,
-            speech_format=self.config.speech_structure[
-                0
-            ].debater_format.get_speech_format(
+            speech_format=self.config.speech_structure[0].debater_format.get_speech_format(
                 name=constants.DEFAULT_DEBATER_A_NAME,
                 num_speeches=num_speeches,
                 use_scratchpad=False,
@@ -334,9 +272,7 @@ class IterativeDirectPreferenceTrainer:
             prompt=prompt_b,
             model=internal_model,
             num_speeches=num_speeches,
-            speech_format=self.config.speech_structure[
-                0
-            ].debater_format.get_speech_format(
+            speech_format=self.config.speech_structure[0].debater_format.get_speech_format(
                 name=constants.DEFAULT_DEBATER_B_NAME,
                 num_speeches=num_speeches,
                 use_scratchpad=False,
@@ -348,9 +284,7 @@ class IterativeDirectPreferenceTrainer:
             name=constants.DEFAULT_JUDGE_NAME,
             prompt=prompt_judge,
             model=self.random_judge_model,
-            speech_format=self.config.speech_structure[
-                0
-            ].judge_format.get_speech_format(
+            speech_format=self.config.speech_structure[0].judge_format.get_speech_format(
                 name=constants.DEFAULT_JUDGE_NAME,
                 num_speeches=num_speeches,
                 use_scratchpad=False,
@@ -363,9 +297,7 @@ class IterativeDirectPreferenceTrainer:
             name=constants.DEFAULT_JUDGE_NAME,
             prompt=prompt_judge,
             model=self.judge_model,
-            speech_format=self.config.speech_structure[
-                0
-            ].judge_format.get_speech_format(
+            speech_format=self.config.speech_structure[0].judge_format.get_speech_format(
                 name=constants.DEFAULT_JUDGE_NAME,
                 num_speeches=num_speeches,
                 use_scratchpad=False,

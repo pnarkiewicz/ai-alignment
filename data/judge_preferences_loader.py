@@ -1,11 +1,12 @@
-from data.dataset import DataRow, DatasetType, JudgePreferenceDataRow, RawDataLoader, RawDataset, SplitType
-from data.quality_loader import QualityLoader
-from utils import InputType, input_utils, quote_utils
-import utils.constants as constants
-
+import json
+import math
+import random
 from enum import Enum, auto
 from typing import Any, Optional
-import json, math, random
+
+import utils.constants as constants
+from data.dataset import DatasetType, JudgePreferenceDataRow, RawDataLoader, RawDataset, SplitType
+from utils import InputType, input_utils, quote_utils
 
 
 class RewardType(Enum):
@@ -114,7 +115,10 @@ class JudgePreferencesLoader(RawDataLoader):
 
     @classmethod
     def load(
-        cls, full_dataset_filepath: str | list[str], reward_type: RewardType = RewardType.LOG_PROB, **kwargs
+        cls,
+        full_dataset_filepath: str | list[str],
+        reward_type: RewardType = RewardType.LOG_PROB,
+        **kwargs,
     ) -> JudgePreferencesDataset:
         """
         Constructs a JudgePreferencesDataset.
@@ -162,7 +166,10 @@ class CorrectnessJudgePreferencesLoader(RawDataLoader):
         def get_actual_judge_score(speeches: list[dict[Any, Any]], name: str) -> Optional[float]:
             for i in range(len(speeches)):
                 speech = speeches[len(speeches) - i - 1]
-                if speech["speaker"] == constants.DEFAULT_JUDGE_NAME and speech["supplemental"]["probabilistic_decision"]:
+                if (
+                    speech["speaker"] == constants.DEFAULT_JUDGE_NAME
+                    and speech["supplemental"]["probabilistic_decision"]
+                ):
                     return speech["supplemental"]["probabilistic_decision"][name]
             return None
 
@@ -186,14 +193,30 @@ class CorrectnessJudgePreferencesLoader(RawDataLoader):
                     random_selected_preference = get_actual_judge_score(data["speeches"], selected["speaker"])
 
                 is_correct = (
-                    data["metadata"]["first_debater_correct"] and selected["speaker"] == constants.DEFAULT_DEBATER_A_NAME
+                    data["metadata"]["first_debater_correct"]
+                    and selected["speaker"] == constants.DEFAULT_DEBATER_A_NAME
                 ) or (
-                    not data["metadata"]["first_debater_correct"] and selected["speaker"] == constants.DEFAULT_DEBATER_B_NAME
+                    not data["metadata"]["first_debater_correct"]
+                    and selected["speaker"] == constants.DEFAULT_DEBATER_B_NAME
                 )
                 if is_correct:
-                    train_data.append((instruction, clean_speech(random_selected_speech), "", random_selected_preference))
+                    train_data.append(
+                        (
+                            instruction,
+                            clean_speech(random_selected_speech),
+                            "",
+                            random_selected_preference,
+                        )
+                    )
                 else:
-                    train_data.append((instruction, "", clean_speech(random_selected_speech), random_selected_preference))
+                    train_data.append(
+                        (
+                            instruction,
+                            "",
+                            clean_speech(random_selected_speech),
+                            random_selected_preference,
+                        )
+                    )
 
         return JudgePreferencesDataset(
             train_data=train_data,

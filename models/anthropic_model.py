@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from models.model import Model, ModelInput, ModelResponse, RoleType, SpeechStructure
-from utils import logger_utils
-import utils.constants as constants
+import random
+import re
+from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 import anthropic
 
-from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
-import random
-import re
+import utils.constants as constants
+from models.model import Model, ModelInput, ModelResponse, RoleType, SpeechStructure
+from utils import logger_utils
 
 
 class AnthropicModel(Model):
@@ -89,7 +89,7 @@ class AnthropicModel(Model):
             if match:
                 return match.group(1)
             else:
-                self.logger.warn("The regex {} did not match the following message: {}".format(regex_str, message))
+                self.logger.warn(f"The regex {regex_str} did not match the following message: {message}")
                 return default
 
         def process_logprobs(completion: dict) -> tuple[float, float]:
@@ -107,7 +107,10 @@ class AnthropicModel(Model):
 
         try:
             completion = self.call_anthropic(
-                system=system, messages=messages, max_new_tokens=max_new_tokens, speech_structure=speech_structure
+                system=system,
+                messages=messages,
+                max_new_tokens=max_new_tokens,
+                speech_structure=speech_structure,
             )
         except Exception as e:
             self.logger.warn(f"Anthropic API returned an API Error: {e}")
@@ -137,11 +140,18 @@ class AnthropicModel(Model):
                 prompt="\n".join(model_input.content for model_input in model_input_list),
             )
 
-        return ModelResponse(speech=message, prompt="\n".join(model_input.content for model_input in model_input_list))
+        return ModelResponse(
+            speech=message,
+            prompt="\n".join(model_input.content for model_input in model_input_list),
+        )
 
     # @backoff.on_exception(backoff.expo, backoff.on_exception, max_tries=4)
     def call_anthropic(
-        self, system: str, messages: list[dict[str, str]], speech_structure: SpeechStructure, max_new_tokens: int
+        self,
+        system: str,
+        messages: list[dict[str, str]],
+        speech_structure: SpeechStructure,
+        max_new_tokens: int,
     ):
         return self.client.messages.create(
             model=self.endpoint,  # "claude-3-haiku-20240307", #"claude-3-opus-20240229",

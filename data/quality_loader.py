@@ -1,21 +1,21 @@
-from data.dataset import DataRow, DatasetType, RawDataLoader, RawDataset, SplitType
-from data.quality_debates_loader import (
-    QualityDebatesDataset,
-    QualityConsultancyLoader,
-    QualityDebatesLoader,
-    QualityModelBasedDebateLoader,
-    QualityTranscriptsLoader,
-)
-import utils.constants as constants
-
-from typing import Any, Optional
 import json
-import itertools
 import os
 import random
 import re
 import statistics
+from typing import Any, Optional
+
+import utils.constants as constants
+from data.dataset import DataRow, DatasetType, RawDataLoader, RawDataset, SplitType
+from data.quality_debates_loader import (
+    QualityConsultancyLoader,
+    QualityDebatesDataset,
+    QualityDebatesLoader,
+    QualityModelBasedDebateLoader,
+    QualityTranscriptsLoader,
+)
 from utils.constants import DEBUG
+
 
 class QualityDataset(RawDataset):
     def __init__(
@@ -125,7 +125,10 @@ class QualityDataset(RawDataset):
                 for val in question["validation"]
             ]
             incorrect_answer = statistics.mode(best_wrong_guesses) - 1
-            possible_position_pairs = [(correct_answer, incorrect_answer, True), (incorrect_answer, correct_answer, False)]
+            possible_position_pairs = [
+                (correct_answer, incorrect_answer, True),
+                (incorrect_answer, correct_answer, False),
+            ]
             random.shuffle(possible_position_pairs)
 
         rows = []
@@ -176,7 +179,8 @@ class QualityDataset(RawDataset):
         return [
             row
             for row in filter(
-                lambda x: x.story_title not in used_stories and x.debate_id not in used_debate_identifiers, rows
+                lambda x: x.story_title not in used_stories and x.debate_id not in used_debate_identifiers,
+                rows,
             )
         ]
 
