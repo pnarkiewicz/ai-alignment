@@ -1,11 +1,11 @@
-from debate import DebateRoundSummary
-from experiments.experiment_loader import ExperimentConfig, ExperimentLoader
-from utils import logger_utils, quote_utils
-import utils.constants as constants
+import copy
 
 from pydantic import BaseModel
 
-import copy
+import utils.constants as constants
+from debate import DebateRoundSummary
+from experiments.experiment_loader import ExperimentConfig, ExperimentLoader
+from utils import logger_utils, quote_utils
 
 
 class QuoteStats(BaseModel):
@@ -65,7 +65,9 @@ class QuotesCollector:
 
         def is_winner(speaker: str):
             return (
-                speaker == constants.DEFAULT_DEBATER_A_NAME and summary.first_debater_wins and summary.first_debater_speaks
+                speaker == constants.DEFAULT_DEBATER_A_NAME
+                and summary.first_debater_wins
+                and summary.first_debater_speaks
             ) or (
                 speaker == constants.DEFAULT_DEBATER_B_NAME
                 and not summary.first_debater_wins
@@ -78,7 +80,9 @@ class QuotesCollector:
                 and not summary.first_debater_wins
                 and summary.first_debater_speaks
             ) or (
-                speaker == constants.DEFAULT_DEBATER_B_NAME and summary.first_debater_wins and summary.second_debater_speaks
+                speaker == constants.DEFAULT_DEBATER_B_NAME
+                and summary.first_debater_wins
+                and summary.second_debater_speaks
             )
 
         def get_alias_from_speaker(speaker: str):
@@ -132,7 +136,7 @@ class QuotesCollector:
                         self.alias_to_results[alias][constants.INCORRECT].total_valid_quote_length += quote_length
                         self.alias_to_results[alias][constants.INCORRECT].quote_length_to_accuracy[quote_length][0] += 1
                 else:
-                    self.logger.debug("The following quote was invalid:\n{}".format(quote))
+                    self.logger.debug(f"The following quote was invalid:\n{quote}")
 
                 self.alias_to_results[alias][constants.OVERALL].number_of_quotes += 1
                 self.alias_to_results[alias][constants.OVERALL].quote_length_to_accuracy[quote_length][1] += 1
@@ -164,7 +168,8 @@ class QuotesCollector:
                 vals = [
                     idx
                     for idx, pair in filter(
-                        lambda x: x[1][1] > 0, enumerate(simplified_results[alias][key].quote_length_to_accuracy)
+                        lambda x: x[1][1] > 0,
+                        enumerate(simplified_results[alias][key].quote_length_to_accuracy),
                     )
                 ]
                 max_val = max(vals) if vals else 0

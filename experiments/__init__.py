@@ -1,4 +1,10 @@
-from .annotator import Annotator, ClassificationConfig, PredictedAnnotation, ParagraphClassification, SentenceClassification
+from .annotator import (
+    Annotator,
+    ClassificationConfig,
+    ParagraphClassification,
+    PredictedAnnotation,
+    SentenceClassification,
+)
 from .experiment_loader import (
     AgentConfig,
     AgentsConfig,

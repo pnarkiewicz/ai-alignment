@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from data import DataRow, RawDataset, SplitType
-from models.model import BestOfNConfig, Model, ModelInput, ModelResponse
-from utils import InputType, input_utils
-import utils.constants as constants
-
+import json
+import random
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Optional
-import json
-import random
+
+import utils.constants as constants
+from data import DataRow, RawDataset, SplitType
+from models.model import BestOfNConfig, Model, ModelInput, ModelResponse
+from utils import InputType, input_utils
 
 
 class OfflineDataFormatParser(ABC):
@@ -271,7 +271,9 @@ class OfflineModelHelper:
             opposite_parser = other_parser if order_by_main else main_parser
             for title, entry in main.items() if order_by_main else other.items():
                 primary_answer = primary_parser.get_first_debater_answer(entry)
-                opposite_answer = opposite_parser.get_first_debater_answer(opposite[title]) if title in opposite else None
+                opposite_answer = (
+                    opposite_parser.get_first_debater_answer(opposite[title]) if title in opposite else None
+                )
                 if title in opposite and primary_answer == opposite_answer:
                     new_data.append(entry if order_by_main else opposite[title])
             return new_data
@@ -430,7 +432,10 @@ class OfflineModelHelper:
                     opponent_speeches.append(
                         [
                             resp["speech"]
-                            for resp in filter(lambda x: x is not None, supplemental["bon_opposing_model_responses"])
+                            for resp in filter(
+                                lambda x: x is not None,
+                                supplemental["bon_opposing_model_responses"],
+                            )
                         ]
                     )
         else:

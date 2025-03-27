@@ -1,5 +1,9 @@
 from . import loader_utils
-from .annotated_quality_debates_loader import Annotation, AnnotatedQualityDebatesDataset, AnnotatedQualityDebatesLoader
+from .annotated_quality_debates_loader import (
+    AnnotatedQualityDebatesDataset,
+    AnnotatedQualityDebatesLoader,
+    Annotation,
+)
 from .dataset import (
     AnnotationBracket,
     AnnotationData,
@@ -15,10 +19,10 @@ from .dataset import (
     SpeechData,
     SplitType,
 )
-from .judge_preferences_loader import JudgePreferencesLoader, JudgePreferencesDataset, JudgePreferencesLoader, RewardType
+from .judge_preferences_loader import JudgePreferencesDataset, JudgePreferencesLoader, RewardType
 from .quality_debates_loader import (
-    QualityDebatesDataset,
     QualityConsultancyLoader,
+    QualityDebatesDataset,
     QualityDebatesLoader,
     QualityModelBasedDebateDataset,
     QualityModelBasedDebateLoader,
@@ -32,4 +36,7 @@ from .quote_relevance_loader import (
     QuoteRelevanceProcessedBatchItem,
     QuoteRelevanceTopicInfo,
 )
-from .scratchpad_quality_debates_loader import ScratchpadQualityDebatesDataset, ScratchpadQualityDebatesLoader
+from .scratchpad_quality_debates_loader import (
+    ScratchpadQualityDebatesDataset,
+    ScratchpadQualityDebatesLoader,
+)

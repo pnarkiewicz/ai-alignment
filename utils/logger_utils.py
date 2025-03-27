@@ -1,14 +1,17 @@
-from transformers import TrainerCallback
-
 import logging
 import os
+
+from transformers import TrainerCallback
 
 
 def get_log_level():
     """Gets the log level specified in the environment variables"""
     if "LOG_LEVEL" in os.environ:
         requested = os.environ["LOG_LEVEL"]
-        for level in filter(lambda x: requested == str(x), [logging.DEBUG, logging.INFO, logging.WARN, logging.ERROR]):
+        for level in filter(
+            lambda x: requested == str(x),
+            [logging.DEBUG, logging.INFO, logging.WARN, logging.ERROR],
+        ):
             return level
         return logging.INFO
 

@@ -1,18 +1,17 @@
 from __future__ import annotations
 
+import copy
+from typing import Optional
+
+import utils.constants as constants
 from debate.agent import Agent, ScratchpadConfig
-from models import BestOfNConfig, HumanModel, Model, ModelResponse, SpeechStructure
-from debate.speech_format import SpeechFormat, SpeechFormatType, SpeechFormatStructure
+from debate.speech_format import SpeechFormat, SpeechFormatType
 from debate.transcript import SpeechFormat, Transcript
+from models import BestOfNConfig, HumanModel, Model, ModelResponse, SpeechStructure
 from prompts import Prompt
 from utils import logger_utils, quote_utils
-import utils.constants as constants
-
-from pydantic import BaseModel
-
-from typing import Optional
-import copy
 from utils.constants import DEBUG, GENERATION_LEN
+
 
 class Debater(Agent):
     def __init__(
@@ -51,7 +50,9 @@ class Debater(Agent):
             speech_format=speech_format
             if speech_format
             else SpeechFormatType.DEFAULT_DEBATE.get_speech_format(
-                name=name, num_speeches=num_speeches, use_scratchpad=scratchpad_config.use_scratchpad
+                name=name,
+                num_speeches=num_speeches,
+                use_scratchpad=scratchpad_config.use_scratchpad,
             ),
         )
         self.scratchpad_config = scratchpad_config
@@ -70,7 +71,9 @@ class Debater(Agent):
         )
 
     def copy(
-        self, transcripts: Optional[list[Transcript]] = None, prompts: Optional[list[Prompt] | Prompt] = None
+        self,
+        transcripts: Optional[list[Transcript]] = None,
+        prompts: Optional[list[Prompt] | Prompt] = None,
     ) -> Debater:
         """Deepcopies the debater (except for the model, which is a shallow copy)"""
         debater = Debater(
@@ -92,7 +95,8 @@ class Debater(Agent):
         batch_reasoning = []
         if self.scratchpad_config.use_scratchpad:
             batch_reasoning = [
-                reasoning.speech for reasoning in self.generate(max_new_tokens=self.scratchpad_config.scratchpad_word_limit)
+                reasoning.speech
+                for reasoning in self.generate(max_new_tokens=self.scratchpad_config.scratchpad_word_limit)
             ]
             for i, reasoning in enumerate(batch_reasoning):
                 super().receive_message(speaker=self.name, content=reasoning, idx=i)
@@ -103,7 +107,8 @@ class Debater(Agent):
 
         if self.scratchpad_config.use_scratchpad and self.scratchpad_config.scratchpad_public:
             all_speeches = [
-                constants.LINE_SEPARATOR.join([reasoning, speech]) for reasoning, speech in zip(all_speeches, generation)
+                constants.LINE_SEPARATOR.join([reasoning, speech])
+                for reasoning, speech in zip(all_speeches, generation)
             ]
 
         return all_speeches, generation
@@ -156,7 +161,8 @@ class BestOfNDebater(Debater):
 
             opposing_speeches = [
                 quote_utils.validate_and_replace_quotes(
-                    speech_content=str(opposing_response.speech), background_text=self.background_text
+                    speech_content=str(opposing_response.speech),
+                    background_text=self.background_text,
                 )
                 for opposing_response in opposing_debater_responses
             ]
@@ -184,9 +190,11 @@ class BestOfNDebater(Debater):
                 judge_inputs.append(judge_transcript.to_model_input())
 
         if len(judge_transcript.speeches) == 1:
-            self.logger.warning(f"[pikaminski] This is probably a bug, not sure why it's happening "
-                                "-- number of speeches is 1 and should be 2."
-                                " If it's your first time here, I'll open a debugger for you:")
+            self.logger.warning(
+                "[pikaminski] This is probably a bug, not sure why it's happening "
+                "-- number of speeches is 1 and should be 2."
+                " If it's your first time here, I'll open a debugger for you:"
+            )
             if not hasattr(self, "open_debugger"):
                 self.open_debugger = False
                 breakpoint()
@@ -196,7 +204,10 @@ class BestOfNDebater(Debater):
         )
 
         split_judge_response = [
-            [resp.probabilistic_decision[self.name] for resp in judge_model_response[i : i + max(self.config.opponent_n, 1)]]
+            [
+                resp.probabilistic_decision[self.name]
+                for resp in judge_model_response[i : i + max(self.config.opponent_n, 1)]
+            ]
             for i in range(0, len(judge_model_response), max(self.config.opponent_n, 1))
         ]
         scores = [
@@ -215,7 +226,9 @@ class BestOfNDebater(Debater):
         return [best_model_response.speech], [best_model_response]
 
     def copy(
-        self, transcripts: Optional[list[Transcript]] = None, prompts: Optional[list[Prompt] | Prompt] = None
+        self,
+        transcripts: Optional[list[Transcript]] = None,
+        prompts: Optional[list[Prompt] | Prompt] = None,
     ) -> Debater:
         """Deepcopies the debater (except for the model, which is a shallow copy)"""
         debater = super().copy(transcripts=transcripts, prompts=prompts)
@@ -241,7 +254,10 @@ class HumanDebater(Debater):
             name=debater.name,
             prompt=debater.prompts,
             model=HumanModel(
-                alias=debater.model.alias, is_debater=debater.is_debater, debater_name=debater.name, speeches=speeches
+                alias=debater.model.alias,
+                is_debater=debater.is_debater,
+                debater_name=debater.name,
+                speeches=speeches,
             ),
             num_speeches=debater.num_speeches,
             speech_format=debater.speech_format,

@@ -1,12 +1,11 @@
-from debate.transcript import SpeechFormat, Transcript
-from models import BestOfNConfig, Model, ModelSettings
-from prompts import Prompt
-from utils import logger_utils
-import utils.constants as constants
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from typing import Any, Optional, Union
+import utils.constants as constants
+from debate.transcript import SpeechFormat, Transcript
+from models import BestOfNConfig, Model, ModelSettings
+from prompts import Prompt
 
 
 class ScratchpadConfig(BaseModel):
@@ -21,7 +20,9 @@ class ScratchpadConfig(BaseModel):
             and (values.get("scratchpad_word_limit") is not None and values.get("scratchpad_word_limit") > 0)
             and values.get("scratchpad_public")
         ):
-            raise ValueError("If use_scratchpad=False, then one should not set scratchpad_word_limit or scratchpad_public")
+            raise ValueError(
+                "If use_scratchpad=False, then one should not set scratchpad_word_limit or scratchpad_public"
+            )
         return values
 
 
@@ -74,12 +75,17 @@ class Agent:
 
         self.prompts = prompt if type(prompt) == list else [prompt]
         self.transcripts = [
-            Transcript(name=self.name, prompt=p, speech_format=speech_format, index=i) for i, p in enumerate(self.prompts)
+            Transcript(name=self.name, prompt=p, speech_format=speech_format, index=i)
+            for i, p in enumerate(self.prompts)
         ]
         self.cached_messages = {}
 
     def receive_message(
-        self, speaker: str, content: str, idx: int, supplemental: Optional[dict[Any, Any] | list[dict[Any, Any]]] = None
+        self,
+        speaker: str,
+        content: str,
+        idx: int,
+        supplemental: Optional[dict[Any, Any] | list[dict[Any, Any]]] = None,
     ):
         """
         The agent takes in a speech from another agent (or itself) and adds it to its internal transcript:
@@ -107,7 +113,7 @@ class Agent:
 
     def save(self, save_file_path_prefix: str, metadata: Optional[list[dict[Any, Any]]] = None):
         """Saves the transcripts to the specified location, with a separate file for each element in the batch"""
-        metadata = (metadata or []) + [{} for i in range(len(self.transcripts) - len((metadata or [])))]
+        metadata = (metadata or []) + [{} for i in range(len(self.transcripts) - len(metadata or []))]
         for i, (transcript, metadata) in enumerate(zip(self.transcripts, metadata)):
             transcript.save(save_file_path_prefix=f"{save_file_path_prefix}_{i}", metadata=metadata)
 

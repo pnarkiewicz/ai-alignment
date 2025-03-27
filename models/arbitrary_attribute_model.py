@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from models.model import Model, ModelInput, ModelResponse, SpeechStructure
-from prompts import RoleType
-import utils.constants as constants
-
-from typing import Optional
 import random
 import re
+from typing import Optional
+
+import utils.constants as constants
 import wandb
+from models.model import Model, ModelInput, ModelResponse, SpeechStructure
+from prompts import RoleType
 from utils.constants import DEBUG
 
 
@@ -67,10 +67,7 @@ class ArbitraryAttributeModel(Model):
         def score_speeches(
             model_inputs: list[ModelInput],
         ) -> tuple[str, tuple[float, float]]:
-            speeches = [
-                speech
-                for speech in filter(lambda x: x.role == RoleType.USER, model_inputs)
-            ]
+            speeches = [speech for speech in filter(lambda x: x.role == RoleType.USER, model_inputs)]
 
             a_speech_pre = re.search(
                 "This is what Debater_A said during their speech.(.*)This is what Debater_B said during their speech",
@@ -92,12 +89,7 @@ class ArbitraryAttributeModel(Model):
 
             wandb.log({"feature_count": a_score + b_score})
             wandb.log({"generated_length": len(a_speech) + len(b_speech)})
-            wandb.log(
-                {
-                    "feature_frac": (a_score + b_score + 1e-5)
-                    / (len(a_speech) + len(b_speech) + 1e-5)
-                }
-            )
+            wandb.log({"feature_frac": (a_score + b_score + 1e-5) / (len(a_speech) + len(b_speech) + 1e-5)})
 
             # b_score = 5  # TODO: change this
             random_val = random.random()
@@ -110,22 +102,19 @@ class ArbitraryAttributeModel(Model):
                     a_score += rand1 + 1e-5
                     b_score += rand2 + 1e-5
                 ret_val = (
-                    constants.DEFAULT_DEBATER_A_NAME
-                    if a_score >= b_score
-                    else constants.DEFAULT_DEBATER_B_NAME
-                ), (
-                    a_score / (a_score + b_score),
-                    b_score / (a_score + b_score),
+                    (constants.DEFAULT_DEBATER_A_NAME if a_score >= b_score else constants.DEFAULT_DEBATER_B_NAME),
+                    (
+                        a_score / (a_score + b_score),
+                        b_score / (a_score + b_score),
+                    ),
                 )
             else:
-
                 ret_val = (
-                    constants.DEFAULT_DEBATER_A_NAME
-                    if random_val <= 0.5
-                    else constants.DEFAULT_DEBATER_B_NAME
-                ), (
-                    0.5 + rand1,
-                    0.5 - rand1,
+                    (constants.DEFAULT_DEBATER_A_NAME if random_val <= 0.5 else constants.DEFAULT_DEBATER_B_NAME),
+                    (
+                        0.5 + rand1,
+                        0.5 - rand1,
+                    ),
                 )
 
             return ret_val
@@ -148,16 +137,12 @@ class ArbitraryAttributeModel(Model):
                         constants.DEFAULT_DEBATER_A_NAME: a_odds,
                         constants.DEFAULT_DEBATER_B_NAME: b_odds,
                     },
-                    prompt="\n".join(
-                        [model_input.content for model_input in inputs[i]]
-                    ),
+                    prompt="\n".join([model_input.content for model_input in inputs[i]]),
                 )
             )
         return decisions
 
-    def copy(
-        self, alias: str, is_debater: Optional[bool] = None, **kwargs
-    ) -> RandomModel:
+    def copy(self, alias: str, is_debater: Optional[bool] = None, **kwargs) -> RandomModel:
         """Generates a deepcopy of this model"""
         return ArbitraryAttributeModel(
             alias=alias,

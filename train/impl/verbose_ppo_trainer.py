@@ -36,7 +36,6 @@ from transformers import (
     PreTrainedTokenizerBase,
     PreTrainedTokenizerFast,
 )
-
 from trl.core import (
     WANDB_PADDING,
     PPODecorators,
@@ -52,6 +51,7 @@ from trl.core import (
     stack_dicts,
     stats_to_np,
 )
+
 # from trl.import_utils import is_npu_available, is_torch_greater_2_0, is_xpu_available
 from trl.models import (
     SUPPORTED_ARCHITECTURES,
@@ -59,10 +59,15 @@ from trl.models import (
     create_reference_model,
     unwrap_model_for_generation,
 )
-from trl.trainer import AdaptiveKLController, BaseTrainer, FixedKLController, PPOConfig, RunningMoments
+from trl.trainer import (
+    AdaptiveKLController,
+    BaseTrainer,
+    FixedKLController,
+    PPOConfig,
+    RunningMoments,
+)
 
 from utils import logger_utils
-
 
 if is_deepspeed_available():
     import deepspeed
@@ -251,11 +256,15 @@ class VerbosePPOTrainer(BaseTrainer):
                 f"architectures are: {SUPPORTED_ARCHITECTURES} "
             )
         self.optional_peft_ctx = (
-            self.accelerator.unwrap_model(self.model).pretrained_model.disable_adapter if self.is_peft_model else nullcontext
+            self.accelerator.unwrap_model(self.model).pretrained_model.disable_adapter
+            if self.is_peft_model
+            else nullcontext
         )
 
         if not (isinstance(tokenizer, PreTrainedTokenizer) or isinstance(tokenizer, PreTrainedTokenizerFast)):
-            raise ValueError("tokenizer must be a transformers.PreTrainedTokenizer or transformers.PreTrainedTokenizerFast")
+            raise ValueError(
+                "tokenizer must be a transformers.PreTrainedTokenizer or transformers.PreTrainedTokenizerFast"
+            )
         self.tokenizer = tokenizer
 
         if dataset is not None and not (isinstance(dataset, torch.utils.data.Dataset) or isinstance(dataset, Dataset)):
@@ -297,7 +306,9 @@ class VerbosePPOTrainer(BaseTrainer):
         self.lr_scheduler = lr_scheduler
         if self.lr_scheduler is not None:
             lr_scheduler_class = (
-                torch.optim.lr_scheduler._LRScheduler if not is_torch_greater_2_0() else torch.optim.lr_scheduler.LRScheduler
+                torch.optim.lr_scheduler._LRScheduler
+                if not is_torch_greater_2_0()
+                else torch.optim.lr_scheduler.LRScheduler
             )
 
             if not isinstance(self.lr_scheduler, lr_scheduler_class):
@@ -370,7 +381,7 @@ class VerbosePPOTrainer(BaseTrainer):
             self.current_device = self.accelerator.device
         else:
             # TODO: handle this nicely
- 
+
             # if is_xpu_available():
             #     self.current_device = torch.device("xpu:0")
             # elif is_npu_available():
@@ -520,7 +531,9 @@ class VerbosePPOTrainer(BaseTrainer):
                 with unwrap_model_for_generation(
                     ref_model, self.accelerator, is_peft_model=self.is_peft_model
                 ) as unwrapped_model:
-                    ref_response = unwrapped_model.generate(input_ids=query_tensor.unsqueeze(dim=0), **generation_kwargs)
+                    ref_response = unwrapped_model.generate(
+                        input_ids=query_tensor.unsqueeze(dim=0), **generation_kwargs
+                    )
 
             if not return_prompt and not self.is_encoder_decoder:
                 response = response[:, query_tensor.shape[0] :]
@@ -761,7 +774,9 @@ class VerbosePPOTrainer(BaseTrainer):
                 active_full_logprobs = logprobs_from_logits(logits_or_none, None, gather=False)
                 ref_full_logprobs = logprobs_from_logits(ref_logits_or_none, None, gather=False)
 
-                rewards, non_score_reward, kls = self.compute_rewards(scores, active_full_logprobs, ref_full_logprobs, masks)
+                rewards, non_score_reward, kls = self.compute_rewards(
+                    scores, active_full_logprobs, ref_full_logprobs, masks
+                )
             else:
                 rewards, non_score_reward, kls = self.compute_rewards(scores, all_logprobs, ref_logprobs, masks)
             timing["time/ppo/compute_rewards"] = time.time() - t
@@ -945,9 +960,9 @@ class VerbosePPOTrainer(BaseTrainer):
 
     def prepare_model_inputs(self, queries: torch.Tensor, responses: torch.Tensor):
         if self.is_encoder_decoder:
-            input_data = self.data_collator([{"input_ids": q, "attention_mask": torch.ones_like(q)} for q in queries]).to(
-                self.current_device
-            )
+            input_data = self.data_collator(
+                [{"input_ids": q, "attention_mask": torch.ones_like(q)} for q in queries]
+            ).to(self.current_device)
 
             decoder_inputs = self.data_collator(
                 [{"input_ids": r, "attention_mask": torch.ones_like(r)} for r in responses]
@@ -1031,7 +1046,9 @@ class VerbosePPOTrainer(BaseTrainer):
                         start += attention_mask[j, :].nonzero()[0]
                     end = start + len(response_batch[j])
                     if response_masks is not None:
-                        response_masks_batch[j] = torch.cat((torch.zeros_like(query_batch[j]), response_masks_batch[j]))[1:]
+                        response_masks_batch[j] = torch.cat(
+                            (torch.zeros_like(query_batch[j]), response_masks_batch[j])
+                        )[1:]
 
                 masks[j, :start] = 0
                 masks[j, end:] = 0
@@ -1085,7 +1102,9 @@ class VerbosePPOTrainer(BaseTrainer):
                 Dictionary of training statistics
         """
         self.model.train()
-        loss_p, loss_v, train_stats = self.loss(old_logprobs, values, logits, vpreds, logprobs, mask, advantages, returns)
+        loss_p, loss_v, train_stats = self.loss(
+            old_logprobs, values, logits, vpreds, logprobs, mask, advantages, returns
+        )
         loss = loss_p + loss_v
         self.accelerator.backward(loss)
         if self.config.max_grad_norm is not None:
@@ -1365,7 +1384,7 @@ class VerbosePPOTrainer(BaseTrainer):
         if self.config.log_with == "wandb":
             import wandb
 
-            if any(column_to_log not in batch.keys() for column_to_log in columns_to_log):
+            if any(column_to_log not in batch for column_to_log in columns_to_log):
                 raise ValueError(f"Columns to log {columns_to_log} are not present in the batch {batch.keys()}.")
 
             batch_list = [batch[column_to_log] for column_to_log in columns_to_log]
@@ -1381,7 +1400,7 @@ class VerbosePPOTrainer(BaseTrainer):
             logs = {}
 
             # Log stats
-            if "query" not in batch.keys() and "response" not in batch.keys():
+            if "query" not in batch and "response" not in batch:
                 # warn the user that the game logs will not be logged
                 warnings.warn(
                     "The game logs will not be logged because the batch does not contain the keys 'query' and "

@@ -1,12 +1,12 @@
-from data import DataRow
-import utils.constants as constants
-
-from pydantic import BaseModel
-import yaml
-
+import os
 from enum import Enum
 from typing import Any, Optional
-import os
+
+import yaml
+from pydantic import BaseModel
+
+import utils.constants as constants
+from data import DataRow
 
 
 class HardcodedTopicConfig(BaseModel):
@@ -115,7 +115,9 @@ class PromptParser:
         prompt.messages = {PromptTag[tag.upper()]: Message(**message) for tag, message in prompt.messages.items()}
 
         base_prompt = Prompt(name=name, messages=loaded_yaml[name])
-        base_prompt.messages = {PromptTag[tag.upper()]: Message(**message) for tag, message in base_prompt.messages.items()}
+        base_prompt.messages = {
+            PromptTag[tag.upper()]: Message(**message) for tag, message in base_prompt.messages.items()
+        }
 
         for prop, value in prompt_config:
             key = f"<{prop.upper()}>"

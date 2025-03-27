@@ -1,16 +1,16 @@
-from debate import DebateRoundSummary
-import utils.constants as constants
-
-from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
-import spacy
-import torch.nn as nn
-import torch
-
-from typing import Optional
 import copy
 import os
 import re
+from typing import Optional
+
+import spacy
+import torch
+import torch.nn as nn
+from pydantic import BaseModel
+from sentence_transformers import SentenceTransformer
+
+import utils.constants as constants
+from debate import DebateRoundSummary
 
 
 class PredictedAnnotation(BaseModel):
@@ -66,7 +66,9 @@ class Annotator:
         "quote",
     ]
 
-    DEFAULT_CONFIG = ClassificationConfig(top_k=3, min_threshold=0.2, special_quotes_handling=True, combine_commentary=False)
+    DEFAULT_CONFIG = ClassificationConfig(
+        top_k=3, min_threshold=0.2, special_quotes_handling=True, combine_commentary=False
+    )
     DEFAULT_MODEL_PATH = os.environ[constants.SRC_ROOT] + "data/datasets/annotated-quality-debates/classifier.p"
 
     def __init__(self, model_path: Optional[str]):
@@ -130,7 +132,9 @@ class Annotator:
                 new_entry = {tag: 0.0 for tag in Annotator.TAGS}
                 probs_list = [(key, item) for key, item in result.dict().items()]
                 sorted_probs_list = sorted(probs_list, key=lambda x: x[1], reverse=True)
-                eligible_probs = [(tag, prob) for tag, prob in filter(lambda x: x[1] > min_threshold, sorted_probs_list)]
+                eligible_probs = [
+                    (tag, prob) for tag, prob in filter(lambda x: x[1] > min_threshold, sorted_probs_list)
+                ]
                 if len(eligible_probs) > 0:
                     new_sum = sum([prob for tag, prob in eligible_probs])
                     for tag, prob in eligible_probs:
@@ -242,6 +246,8 @@ class Annotator:
                     all_results[tag].append(classification.annotation.dict()[tag])
             for tag in all_results:
                 average_speaker_results[speaker][tag] = sum(all_results[tag]) / len(all_results[tag])
-                lower_speaker_results[speaker][tag] = sorted(all_results[tag])[int((1 - percentile) * len(all_results[tag]))]
+                lower_speaker_results[speaker][tag] = sorted(all_results[tag])[
+                    int((1 - percentile) * len(all_results[tag]))
+                ]
                 upper_speaker_results[speaker][tag] = sorted(all_results[tag])[int(percentile * len(all_results[tag]))]
         return average_speaker_results, lower_speaker_results, upper_speaker_results

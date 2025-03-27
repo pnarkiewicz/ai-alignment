@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from models.model import Model, ModelInput, ModelResponse, SpeechStructure
-import utils.constants as constants
-
-from typing import Optional
 import random
+from typing import Optional
+
+import utils.constants as constants
+from models.model import Model, ModelInput, ModelResponse, SpeechStructure
 
 
 class RepetitiveModel(Model):

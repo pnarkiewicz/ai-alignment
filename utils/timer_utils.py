@@ -1,7 +1,7 @@
-import utils.logger_utils as logger_utils
-
-from functools import wraps
 import time
+from functools import wraps
+
+import utils.logger_utils as logger_utils
 
 
 def timer(custom_name: str = None):

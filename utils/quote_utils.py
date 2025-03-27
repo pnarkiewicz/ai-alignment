@@ -1,11 +1,11 @@
-import utils.logger_utils as logger_utils
-import utils.constants as constants
-
+import re
 from difflib import SequenceMatcher
 from typing import Optional
-import re
 
 import fuzzysearch  #  potentially delete
+
+import utils.constants as constants
+import utils.logger_utils as logger_utils
 
 
 def simplify_text(text: str):
@@ -43,10 +43,14 @@ def validate_quote(quote: str, background_text: str, prevalidated_speech: Option
         Returns true if the quote is actually in the background text.
     """
     if prevalidated_speech:
-        if re.search(f"{constants.QUOTE_TAG}\s*{re.escape(quote)}\s*{constants.UNQUOTE_TAG}", prevalidated_speech):
+        if re.search(
+            f"{constants.QUOTE_TAG}\s*{re.escape(quote)}\s*{constants.UNQUOTE_TAG}",
+            prevalidated_speech,
+        ):
             return True
         elif re.search(
-            f"{constants.INVALID_QUOTE_TAG}\s*{re.escape(quote)}\s*{constants.INVALID_UNQUOTE_TAG}", prevalidated_speech
+            f"{constants.INVALID_QUOTE_TAG}\s*{re.escape(quote)}\s*{constants.INVALID_UNQUOTE_TAG}",
+            prevalidated_speech,
         ):
             return False
     return quote in background_text or simplify_text(quote) in simplify_text(background_text)
@@ -54,8 +58,12 @@ def validate_quote(quote: str, background_text: str, prevalidated_speech: Option
 
 def extract_quotes(speech_content: str) -> list[str]:
     """Pulls out all the quotes (valid or invalid) from the speech"""
-    return re.findall(f"{constants.QUOTE_TAG}(.*?){constants.UNQUOTE_TAG}", speech_content, flags=re.DOTALL) + re.findall(
-        f"{constants.INVALID_QUOTE_TAG}(.*?){constants.INVALID_UNQUOTE_TAG}", speech_content, flags=re.DOTALL
+    return re.findall(
+        f"{constants.QUOTE_TAG}(.*?){constants.UNQUOTE_TAG}", speech_content, flags=re.DOTALL
+    ) + re.findall(
+        f"{constants.INVALID_QUOTE_TAG}(.*?){constants.INVALID_UNQUOTE_TAG}",
+        speech_content,
+        flags=re.DOTALL,
     )
 
 
@@ -67,8 +75,8 @@ def clean_up_quotes(speech_content: str) -> list[str]:
     previous = speech_content
     replaced_text = speech_content
     replaced_text = re.sub(f"({constants.QUOTE_TAG}{constants.UNQUOTE_TAG})+", "", replaced_text, flags=re.DOTALL)
-    replaced_text = re.sub(f"{constants.QUOTE_TAG}{2,}", constants.QUOTE_TAG, replaced_text, flags=re.DOTALL)
-    replaced_text = re.sub(f"{constants.UNQUOTE_TAG}{2,}", constants.UNQUOTE_TAG, replaced_text, flags=re.DOTALL)
+    replaced_text = re.sub(f"{constants.QUOTE_TAG}{(2,)}", constants.QUOTE_TAG, replaced_text, flags=re.DOTALL)
+    replaced_text = re.sub(f"{constants.UNQUOTE_TAG}{(2,)}", constants.UNQUOTE_TAG, replaced_text, flags=re.DOTALL)
 
     # adds an unquote tag to the end of the text if there's an unterminated quote at the end
     all_quote_tags = re.findall(rf"{constants.QUOTE_TAG}|{constants.UNQUOTE_TAG}", replaced_text, flags=re.DOTALL)
@@ -135,7 +143,11 @@ def find_best_match(
 
 
 def replace_quotes_containing_ellipses(
-    speech_content: str, quote: str, background_text: str, early_stopping_threshold: int = 0.9, min_threshold: int = 0.8
+    speech_content: str,
+    quote: str,
+    background_text: str,
+    early_stopping_threshold: int = 0.9,
+    min_threshold: int = 0.8,
 ) -> Optional[str]:
     """
     Some quotes may contain ellipses. These quotes may be marked as invalid because they contain words from
@@ -235,7 +247,7 @@ def extract_quote_context(quote_text: str, background_text: str, context_size: i
         )
         match = re.search(pattern, background_text, flags=re.DOTALL)
         if match:
-            return "{}{}{}".format(match.group(1), quote_text, match.group(2))
+            return f"{match.group(1)}{quote_text}{match.group(2)}"
 
     if not quote_text:
         return None

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from models.model import Model, ModelInput, ModelResponse, SpeechStructure
-import utils.constants as constants
-
 from typing import Optional
+
+import utils.constants as constants
+from models.model import Model, ModelInput, ModelResponse, SpeechStructure
 
 
 class DeterministicModel(Model):
@@ -16,7 +16,9 @@ class DeterministicModel(Model):
             is_debater: boolean indicating whether the model is a debater (true) or judge (false)
         """
         super().__init__(alias=alias, is_debater=is_debater)
-        self.text = "My position is correct. You have to vote for me." if self.is_debater else "I am a judge. Let me think."
+        self.text = (
+            "My position is correct. You have to vote for me." if self.is_debater else "I am a judge. Let me think."
+        )
         self.text_length = len(self.text.split())
 
     def predict(

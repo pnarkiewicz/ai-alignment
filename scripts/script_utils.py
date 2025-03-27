@@ -1,11 +1,11 @@
-from dotenv import load_dotenv
-from pydantic import BaseModel
-
-from enum import Enum
 import argparse
 import logging
 import os
 import sys
+from enum import Enum
+
+from dotenv import load_dotenv
+from pydantic import BaseModel
 
 
 class DebateRoundScriptConfig(BaseModel):
@@ -44,7 +44,9 @@ class ScriptUtils:
         parser.add_argument("--num_iters", type=int, default=1_000)
         parser.add_argument("--log_level", type=str, default="INFO")
         parser.add_argument("--configuration", type=str, default="")
-        parser.add_argument("--test", action="store_true", default=False)  # needed for local testing (optional otherwise)
+        parser.add_argument(
+            "--test", action="store_true", default=False
+        )  # needed for local testing (optional otherwise)
         parser.add_argument("--load_only", action="store_true", default=False)
         parser.add_argument("--suppress_graphs", action="store_true", default=False)
         parser.add_argument("--local_rank", type=int, default=0)  # needed for multi-GPU training
@@ -119,5 +121,6 @@ class ScriptUtils:
     @classmethod
     def get_training_run_script_config(cls, args, train_type: TrainType) -> ModelRunScriptConfig:
         return ModelRunScriptConfig(
-            config_filepath=ScriptUtils.get_config_filepath(train_type=train_type), config_name=args.configuration
+            config_filepath=ScriptUtils.get_config_filepath(train_type=train_type),
+            config_name=args.configuration,
         )

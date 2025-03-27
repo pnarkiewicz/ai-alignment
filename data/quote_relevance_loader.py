@@ -1,14 +1,16 @@
-from data.dataset import DataRow, DatasetType, RawDataLoader, RawDataset, SpeakerType, SpeechData, SplitType
-from data.quality_loader import QualityLoader, QualityDataset
-from data.scratchpad_quality_debates_loader import ScratchpadQualityDebatesLoader, ScratchpadQualityDebatesDataset
-import utils.constants as constants
-
+import os
+import pickle
 from typing import Any, Optional
 
 from pydantic import BaseModel
-import json
-import os
-import pickle
+
+import utils.constants as constants
+from data.dataset import DatasetType, RawDataLoader, SpeakerType, SpeechData, SplitType
+from data.quality_loader import QualityDataset, QualityLoader
+from data.scratchpad_quality_debates_loader import (
+    ScratchpadQualityDebatesDataset,
+    ScratchpadQualityDebatesLoader,
+)
 
 
 class QuoteRelevanceTopicInfo(BaseModel):
@@ -75,7 +77,10 @@ class QuoteRelevanceDataset(QualityDataset):
 
             filtered_a_quote_map = {
                 quote: score
-                for quote, score in filter(lambda x: x[1] > QuoteRelevanceDataset.FILTER_THRESHOLD, item.a_quote_map.items())
+                for quote, score in filter(
+                    lambda x: x[1] > QuoteRelevanceDataset.FILTER_THRESHOLD,
+                    item.a_quote_map.items(),
+                )
             }
             a_scratchpad = "\n\n".join(
                 [
@@ -83,11 +88,16 @@ class QuoteRelevanceDataset(QualityDataset):
                     for i, quote in enumerate(filter(lambda x: x, filtered_a_quote_map))
                 ]
             ).strip()
-            row.speeches.append(SpeechData(text="", position=0, speaker_type=SpeakerType.DEBATER, scratchpad=a_scratchpad))
+            row.speeches.append(
+                SpeechData(text="", position=0, speaker_type=SpeakerType.DEBATER, scratchpad=a_scratchpad)
+            )
 
             filtered_b_quote_map = {
                 quote: score
-                for quote, score in filter(lambda x: x[1] > QuoteRelevanceDataset.FILTER_THRESHOLD, item.b_quote_map.items())
+                for quote, score in filter(
+                    lambda x: x[1] > QuoteRelevanceDataset.FILTER_THRESHOLD,
+                    item.b_quote_map.items(),
+                )
             }
 
             b_scratchpad = "\n\n".join(
@@ -96,7 +106,9 @@ class QuoteRelevanceDataset(QualityDataset):
                     for i, quote in enumerate(filter(lambda x: x, filtered_b_quote_map))
                 ]
             ).strip()
-            row.speeches.append(SpeechData(text="", position=1, speaker_type=SpeakerType.DEBATER, scratchpad=b_scratchpad))
+            row.speeches.append(
+                SpeechData(text="", position=1, speaker_type=SpeakerType.DEBATER, scratchpad=b_scratchpad)
+            )
 
             if a_scratchpad or b_scratchpad:
                 rows_to_use.append(row)
@@ -128,7 +140,9 @@ class QuoteRelevanceLoader(RawDataLoader):
         )
 
         debate_file_path = supplemental_file_paths.get("debate_file_path", None) if supplemental_file_paths else None
-        scratchpad_dataset = ScratchpadQualityDebatesLoader.load(full_dataset_filepath=debate_file_path, deduplicate=False)
+        scratchpad_dataset = ScratchpadQualityDebatesLoader.load(
+            full_dataset_filepath=debate_file_path, deduplicate=False
+        )
 
         train, val, test = QualityLoader.get_splits(
             train_filepath=train_filepath, val_filepath=val_filepath, test_filepath=test_filepath
