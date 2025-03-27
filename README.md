@@ -64,7 +64,7 @@ We use [pre-commit](https://pre-commit.com/) to manage git hooks.
 To configure this extension one has to run
 ```sh
 pre-commit install
-
+```
 
 ## Setup
 
