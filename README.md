@@ -5,6 +5,9 @@
 * Należy w pliku konfiguracyjnym `ai-ailgnment/train/configs/dpo_config.yaml` zaktualizować:
 	* Ścieżkę do modelu `model_name`
  	* Ścieżkę do outputu `output_dir`
+  * Najłatwiej to zrobić poprzez ściągnięcie repo przy pomocy gita 
+    * By to zrobić trzeba wcześniej zainstalować [git-lfs](https://git-lfs.com/)
+    * A następnie `git clone https://huggingface.co/delphi-suite/v0-llama2-100k checkpoints/v0-llama2-100k`
 * Logi/wykresy lecą do `wandb`: wymaga zalogowania/tokena
 * U mnie lokalnie leci ~4min, czasem efekty widać dużo szybciej. Starałem się zbić pamięć: raczej da się wyżyłować bardziej, ale to czasem prowadzi do błędów.
 * W pliku `utils/constants.py` zdefiniowana zmienna `DEBUG`. Parę rzeczy zmieniam w kodzie, gdy jest ustawiona na `True`.
