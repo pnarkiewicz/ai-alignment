@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-import copy
-from typing import Optional
-
 from debate.agent import Agent, ScratchpadConfig
-from debate.speech_format import SpeechFormat, SpeechFormatType
-from debate.transcript import Transcript
 from models import BestOfNConfig, HumanModel, Model, ModelResponse, SpeechStructure
+from debate.speech_format import SpeechFormat, SpeechFormatType, SpeechFormatStructure
+from debate.transcript import SpeechFormat, Transcript
 from prompts import Prompt
 from utils import logger_utils, quote_utils
-from utils.constants import DEBUG, GENERATION_LEN
 import utils.constants as constants
 
+from pydantic import BaseModel
+
+from typing import Optional
+import copy
+from utils.constants import DEBUG, GENERATION_LEN
 
 class Debater(Agent):
     def __init__(
@@ -47,10 +48,10 @@ class Debater(Agent):
             num_speeches=num_speeches,
             receive_validated_quotes=True,
             quotes_require_validation=quotes_require_validation,
-            speech_format=(
-                speech_format
-                if speech_format
-                else SpeechFormatType.DEFAULT_DEBATE.get_speech_format(name=name, num_speeches=num_speeches, use_scratchpad=scratchpad_config.use_scratchpad)
+            speech_format=speech_format
+            if speech_format
+            else SpeechFormatType.DEFAULT_DEBATE.get_speech_format(
+                name=name, num_speeches=num_speeches, use_scratchpad=scratchpad_config.use_scratchpad
             ),
         )
         self.scratchpad_config = scratchpad_config
@@ -68,7 +69,9 @@ class Debater(Agent):
             round_idx=round_idx,
         )
 
-    def copy(self, transcripts: Optional[list[Transcript]] = None, prompts: Optional[list[Prompt] | Prompt] = None) -> Debater:
+    def copy(
+        self, transcripts: Optional[list[Transcript]] = None, prompts: Optional[list[Prompt] | Prompt] = None
+    ) -> Debater:
         """Deepcopies the debater (except for the model, which is a shallow copy)"""
         debater = Debater(
             name=self.name,
@@ -88,7 +91,9 @@ class Debater(Agent):
         scratchpad, it will use that but keep those results hidden."""
         batch_reasoning = []
         if self.scratchpad_config.use_scratchpad:
-            batch_reasoning = [reasoning.speech for reasoning in self.generate(max_new_tokens=self.scratchpad_config.scratchpad_word_limit)]
+            batch_reasoning = [
+                reasoning.speech for reasoning in self.generate(max_new_tokens=self.scratchpad_config.scratchpad_word_limit)
+            ]
             for i, reasoning in enumerate(batch_reasoning):
                 super().receive_message(speaker=self.name, content=reasoning, idx=i)
                 self.logger.debug(reasoning)
@@ -97,7 +102,9 @@ class Debater(Agent):
         all_speeches = [gen.speech for gen in generation]
 
         if self.scratchpad_config.use_scratchpad and self.scratchpad_config.scratchpad_public:
-            all_speeches = [constants.LINE_SEPARATOR.join([reasoning, speech]) for reasoning, speech in zip(all_speeches, generation)]
+            all_speeches = [
+                constants.LINE_SEPARATOR.join([reasoning, speech]) for reasoning, speech in zip(all_speeches, generation)
+            ]
 
         return all_speeches, generation
 
@@ -107,7 +114,7 @@ class BestOfNDebater(Debater):
         self,
         debater: Debater,
         opposing_debater: Debater,
-        judge: "Judge",
+        judge: Judge,
         best_of_n_config: BestOfNConfig,
         background_text: str,
     ):
@@ -134,7 +141,10 @@ class BestOfNDebater(Debater):
             debater_name=self.name,
         )
         speeches = [
-            quote_utils.validate_and_replace_quotes(speech_content=str(response.speech), background_text=self.background_text) for response in model_responses
+            quote_utils.validate_and_replace_quotes(
+                speech_content=str(response.speech), background_text=self.background_text
+            )
+            for response in model_responses
         ]
 
         if self.config.opponent_n:
@@ -145,7 +155,9 @@ class BestOfNDebater(Debater):
             )
 
             opposing_speeches = [
-                quote_utils.validate_and_replace_quotes(speech_content=str(opposing_response.speech), background_text=self.background_text)
+                quote_utils.validate_and_replace_quotes(
+                    speech_content=str(opposing_response.speech), background_text=self.background_text
+                )
                 for opposing_response in opposing_debater_responses
             ]
         else:
@@ -172,22 +184,24 @@ class BestOfNDebater(Debater):
                 judge_inputs.append(judge_transcript.to_model_input())
 
         if len(judge_transcript.speeches) == 1:
-            self.logger.warning(
-                "[pikaminski] This is probably a bug, not sure why it's happening "
-                "-- number of speeches is 1 and should be 2."
-                " If it's your first time here, I'll open a debugger for you:"
-            )
+            self.logger.warning(f"[pikaminski] This is probably a bug, not sure why it's happening "
+                                "-- number of speeches is 1 and should be 2."
+                                " If it's your first time here, I'll open a debugger for you:")
             if not hasattr(self, "open_debugger"):
                 self.open_debugger = False
                 breakpoint()
 
-        judge_model_response = self.judge.model.predict(inputs=judge_inputs, max_new_tokens=15, speech_structure=SpeechStructure.DECISION)
+        judge_model_response = self.judge.model.predict(
+            inputs=judge_inputs, max_new_tokens=15, speech_structure=SpeechStructure.DECISION
+        )
 
         split_judge_response = [
             [resp.probabilistic_decision[self.name] for resp in judge_model_response[i : i + max(self.config.opponent_n, 1)]]
             for i in range(0, len(judge_model_response), max(self.config.opponent_n, 1))
         ]
-        scores = [min(option) if self.config.maxmin else sum(option) / max(len(option), 1) for option in split_judge_response]
+        scores = [
+            min(option) if self.config.maxmin else sum(option) / max(len(option), 1) for option in split_judge_response
+        ]
         selection_idx = sorted(zip(scores, range(len(model_responses))), key=lambda x: x[0], reverse=True)[0][1]
         best_model_response = model_responses[selection_idx]
         best_model_response.bon_opposing_model_responses = opposing_debater_responses
@@ -200,7 +214,9 @@ class BestOfNDebater(Debater):
 
         return [best_model_response.speech], [best_model_response]
 
-    def copy(self, transcripts: Optional[list[Transcript]] = None, prompts: Optional[list[Prompt] | Prompt] = None) -> Debater:
+    def copy(
+        self, transcripts: Optional[list[Transcript]] = None, prompts: Optional[list[Prompt] | Prompt] = None
+    ) -> Debater:
         """Deepcopies the debater (except for the model, which is a shallow copy)"""
         debater = super().copy(transcripts=transcripts, prompts=prompts)
         return BestOfNDebater(
@@ -213,7 +229,7 @@ class BestOfNDebater(Debater):
 
 
 class HumanDebater(Debater):
-    def __init__(self, debater: Debater, speeches: list["SpeechData"]):
+    def __init__(self, debater: Debater, speeches: list[SpeechData]):
         """
         A separate abstraction for a debater that uses a HumanModel.
 
@@ -224,7 +240,9 @@ class HumanDebater(Debater):
         super().__init__(
             name=debater.name,
             prompt=debater.prompts,
-            model=HumanModel(alias=debater.model.alias, is_debater=debater.is_debater, debater_name=debater.name, speeches=speeches),
+            model=HumanModel(
+                alias=debater.model.alias, is_debater=debater.is_debater, debater_name=debater.name, speeches=speeches
+            ),
             num_speeches=debater.num_speeches,
             speech_format=debater.speech_format,
             quotes_require_validation=False,

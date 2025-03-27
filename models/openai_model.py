@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
-import math
-import os
-import random
-import re
-from typing import Optional
+from models.model import Model, ModelInput, ModelResponse, RoleType, SpeechStructure
+from utils import logger_utils
+import utils.constants as constants
 
 import backoff
 import openai
 
-from models.model import Model, ModelInput, ModelResponse, RoleType, SpeechStructure
-from utils import logger_utils
-import utils.constants as constants
+from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
+import os
+import math
+import random
+import re
 
 
 class OpenAIModel(Model):
@@ -119,7 +119,9 @@ class OpenAIModel(Model):
         messages = OpenAIModel.generate_llm_input_from_model_inputs(input_list=model_input_list)
 
         try:
-            completion = self.call_openai(messages=messages, max_new_tokens=max_new_tokens, speech_structure=speech_structure)
+            completion = self.call_openai(
+                messages=messages, max_new_tokens=max_new_tokens, speech_structure=speech_structure
+            )
         except openai.APIError as e:
             self.logger.warn(f"OpenAI API returned an API Error: {e}")
             self.logger.warn(e)
@@ -140,7 +142,11 @@ class OpenAIModel(Model):
             message = (
                 constants.DEFAULT_DEBATER_A_NAME
                 if a_odds > b_odds
-                else (constants.DEFAULT_DEBATER_B_NAME if (b_odds > a_odds or random.random() > 0.5) else constants.DEFAULT_DEBATER_A_NAME)
+                else (
+                    constants.DEFAULT_DEBATER_B_NAME
+                    if (b_odds > a_odds or random.random() > 0.5)
+                    else constants.DEFAULT_DEBATER_A_NAME
+                )
             )
             self.logger.debug(f"Debater A's odds: {a_odds}, Debater B's odds: {b_odds}, Winner: {message}")
             return ModelResponse(
@@ -155,7 +161,9 @@ class OpenAIModel(Model):
         return ModelResponse(speech=message, prompt="\n".join(model_input.content for model_input in model_input_list))
 
     @backoff.on_exception(backoff.expo, backoff.on_exception, max_tries=4)
-    def call_openai(self, messages: list[dict[str, str]], speech_structure: SpeechStructure, max_new_tokens: int) -> openai.ChatCompletion:
+    def call_openai(
+        self, messages: list[dict[str, str]], speech_structure: SpeechStructure, max_new_tokens: int
+    ) -> openai.ChatCompletion:
         return self.client.chat.completions.create(
             model=self.endpoint,
             messages=messages,
@@ -169,7 +177,9 @@ class OpenAIModel(Model):
         return OpenAIModel(alias=alias, is_debater=is_debater, endpoint=self.endpoint)
 
     @classmethod
-    def generate_llm_input_from_model_inputs(cls, input_list: list[ModelInput], extra_suffix: str = "") -> dict[str, list[dict[str, str]]]:
+    def generate_llm_input_from_model_inputs(
+        cls, input_list: list[ModelInput], extra_suffix: str = ""
+    ) -> dict[str, list[dict[str, str]]]:
         """Converts a ModelInput into the format that the OpenAI API expects"""
 
         def model_input_to_openai_format(model_input: ModelInput | str) -> dict[str, str]:

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+from models.model import Model, ModelInput, ModelResponse, SpeechStructure
+from models.llm_model import GenerationParams
+from utils import logger_utils, timer
 
 from pydantic import BaseModel
 import requests
 
-from models.llm_model import GenerationParams
-from models.model import Model, ModelInput, ModelResponse, SpeechStructure
-from utils import logger_utils, timer
+from concurrent.futures import ThreadPoolExecutor
 
 
 class RequestParams(BaseModel):
@@ -76,7 +76,12 @@ class ServedModel(Model):
             raise Exception("You cannot have multiple return sequences and a batch size of >1")
 
         with ThreadPoolExecutor(max_workers=ServedModel.MAX_PARALLEL_REQUESTS) as executor:
-            input_strs = [input_string for input_string in self.base_model.generate_input_strs(inputs=inputs, speech_structure=SpeechStructure.OPEN_ENDED)]
+            input_strs = [
+                input_string
+                for input_string in self.base_model.generate_input_strs(
+                    inputs=inputs, speech_structure=SpeechStructure.OPEN_ENDED
+                )
+            ]
             futures = [executor.submit(self.fetch, input_string) for input_string in input_strs]
             results = [ModelResponse(speech=future.result(), prompt=input_strs[i]) for i, future in enumerate(futures)]
 

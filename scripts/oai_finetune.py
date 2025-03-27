@@ -14,7 +14,7 @@ client.files.create(
 """
 """
 client.fine_tuning.jobs.create(
-  training_file="file-n7fvnScZBWodZ7F8nLGk4eQG",
+  training_file="file-n7fvnScZBWodZ7F8nLGk4eQG", 
   model="gpt-4",
   hyperparameters={"n_epochs": 2}
 )

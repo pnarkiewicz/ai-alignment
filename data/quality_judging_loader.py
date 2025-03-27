@@ -1,14 +1,14 @@
-import base64
-import io
-import json
-from typing import Any, Optional
+from data.dataset import DataRow, DatasetType, JudgingProbeDataRow, RawDataLoader, RawDataset, SplitType
+from data.quality_loader import QualityLoader
+from utils import InputType, input_utils, get_device
+import utils.constants as constants
 
 import torch
 
-from data.dataset import DataRow, DatasetType, JudgingProbeDataRow, RawDataLoader, RawDataset, SplitType
-from data.quality_loader import QualityLoader
-from utils import get_device, input_utils, InputType
-import utils.constants as constants
+from typing import Any, Optional
+import base64
+import io
+import json
 
 
 class QualityJudgingDataset(RawDataset):

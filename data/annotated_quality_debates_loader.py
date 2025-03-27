@@ -1,15 +1,28 @@
-import copy
-from difflib import SequenceMatcher
-import os
-import pickle
-import re
-from typing import Optional
+from data.dataset import (
+    AnnotationBracket,
+    AnnotationData,
+    AnnotationTag,
+    DataRow,
+    DatasetType,
+    RawDataLoader,
+    RawDataset,
+    SpeakerType,
+    SpeechData,
+    SplitType,
+)
+from data.quality_debates_loader import QualityDebatesDataset, QualityDebatesLoader
+import utils.constants as constants
 
 from pydantic import BaseModel
 
-from data.dataset import AnnotationBracket, AnnotationData, AnnotationTag, DataRow, DatasetType, RawDataLoader, RawDataset, SpeechData, SplitType
-from data.quality_debates_loader import QualityDebatesDataset, QualityDebatesLoader
-import utils.constants as constants
+from difflib import SequenceMatcher
+from enum import Enum
+from typing import Optional, Union
+import copy
+import pickle
+import os
+import re
+import sys
 
 
 class Annotation(BaseModel):
@@ -134,9 +147,9 @@ class AnnotatedQualityDebatesDataset(RawDataset):
 
     def __add_annotation(self, annotations_file_path: str) -> None:
         def match_speeches(speech: SpeechData, annotations: list[Annotation]):
-            cleaned_speech = re.sub("\\s+", " ", speech.text)
+            cleaned_speech = re.sub("\s+", " ", speech.text)
             for annotation in annotations:
-                cleaned_annotation = re.sub("\\s+", " ", annotation.clean).lstrip().rstrip()
+                cleaned_annotation = re.sub("\s+", " ", annotation.clean).lstrip().rstrip()
                 ratio = SequenceMatcher(None, cleaned_annotation, cleaned_speech).ratio()
                 if cleaned_annotation == cleaned_speech or ratio > 0.99:
                     return annotation

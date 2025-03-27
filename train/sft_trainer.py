@@ -1,24 +1,24 @@
-from typing import Any, Optional
-
-import datasets
-import pandas as pd
-from peft import get_peft_model
-import torch
-from transformers import AutoTokenizer, TrainingArguments
-from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
-
 from data import DatasetConfig, RawDataset
 from models import LLModel, ModelInput, SpeechStructure
 from prompts import RoleType
 from train.row_converter import RowConverter
-from train.train_utils import TrainingConfig, TrainingTarget, TrainUtils
+from train.train_utils import TrainUtils, TrainingConfig, TrainingTarget
 from utils import LoggingCallback
+
+from peft import get_peft_model
+from transformers import AutoTokenizer, TrainingArguments
+from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
+import pandas as pd
+import datasets
+import torch
+
+from typing import Any, Optional
 
 try:
     from utils.flash_attn_utils import replace_attn_with_flash_attn, upcast_layer_for_flash_attention
 
     FLASH_ATTENTION_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     print("Running without flash attention")
     FLASH_ATTENTION_AVAILABLE = False
 
@@ -27,7 +27,9 @@ class SupervisedTrainer:
     """Class for training a model using Supervised Fine Tuning"""
 
     @classmethod
-    def convert_dataset(cls, raw_datasets: list[RawDataset], config: TrainingConfig, tokenizer: AutoTokenizer) -> datasets.Dataset:
+    def convert_dataset(
+        cls, raw_datasets: list[RawDataset], config: TrainingConfig, tokenizer: AutoTokenizer
+    ) -> datasets.Dataset:
         """Converts a dataset (abstraction used in this codebase) into a Dataset object (abstraction
         used by huggingface's trainer objects)"""
 
@@ -60,7 +62,9 @@ class SupervisedTrainer:
         if isinstance(dataset_configs, DatasetConfig):
             dataset_configs = [dataset_configs]
 
-        output_structure = SpeechStructure.OPEN_ENDED if config.target == TrainingTarget.DEBATER else SpeechStructure.DECISION
+        output_structure = (
+            SpeechStructure.OPEN_ENDED if config.target == TrainingTarget.DEBATER else SpeechStructure.DECISION
+        )
 
         llm_inputs = []
         for idx, raw_dataset in enumerate(raw_datasets):
@@ -72,7 +76,9 @@ class SupervisedTrainer:
                     dataset=raw_dataset,
                     speech_structure=speech_structure,
                     use_gold_labels=config.training_hyperparameters.supplemental.get("gold_labels", False),
-                    use_minimal_output_format=config.training_hyperparameters.supplemental.get("use_minimal_output_format", False),
+                    use_minimal_output_format=config.training_hyperparameters.supplemental.get(
+                        "use_minimal_output_format", False
+                    ),
                 )
                 for i, row in enumerate(raw_dataset.get_data(split=config.dataset[idx].split_type))
             ]

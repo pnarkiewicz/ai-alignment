@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import random
-from typing import Optional
-
 from models.model import Model, ModelInput, ModelResponse, SpeechStructure
-from utils import logger_utils
 import utils.constants as constants
+from utils import logger_utils
+
+from typing import Optional
+import random
 
 
 class RandomModel(Model):
@@ -54,7 +54,12 @@ class RandomModel(Model):
 
         def generate_random_text():
             return (
-                " ".join(["".join(random.choices(self.alphabet, k=random.randrange(1, 8))) for i in range(random.randrange(1, max_new_tokens))])
+                " ".join(
+                    [
+                        "".join(random.choices(self.alphabet, k=random.randrange(1, 8)))
+                        for i in range(random.randrange(1, max_new_tokens))
+                    ]
+                )
                 + f"{constants.QUOTE_TAG} This is not real {constants.UNQUOTE_TAG}."
             )
 
@@ -66,7 +71,9 @@ class RandomModel(Model):
             return decision, (a_odds, b_odds)
 
         if len(inputs) > 1 and num_return_sequences > 1:
-            raise Exception(f"Length of input ({len(inputs)}) and num_return_sequences ({num_return_sequences}) cannot both be greater than 1.")
+            raise Exception(
+                f"Length of input ({len(inputs)}) and num_return_sequences ({num_return_sequences}) cannot both be greater than 1."
+            )
 
         if speech_structure == SpeechStructure.DECISION:
             decisions = []
@@ -86,7 +93,9 @@ class RandomModel(Model):
 
         num_return_sequences = max(num_return_sequences, len(inputs))
         return [
-            ModelResponse(speech=generate_random_text(), prompt="\n".join([model_input.content for model_input in inputs[i]]))
+            ModelResponse(
+                speech=generate_random_text(), prompt="\n".join([model_input.content for model_input in inputs[i]])
+            )
             for i in range(num_return_sequences)
         ]
 

@@ -1,11 +1,12 @@
-from typing import Any, Optional
-
-from pydantic import BaseModel, ConfigDict, model_validator
-
 from debate.transcript import SpeechFormat, Transcript
 from models import BestOfNConfig, Model, ModelSettings
 from prompts import Prompt
+from utils import logger_utils
 import utils.constants as constants
+
+from pydantic import BaseModel, ConfigDict, model_validator
+
+from typing import Any, Optional, Union
 
 
 class ScratchpadConfig(BaseModel):
@@ -72,10 +73,14 @@ class Agent:
         self.speech_format = speech_format
 
         self.prompts = prompt if type(prompt) == list else [prompt]
-        self.transcripts = [Transcript(name=self.name, prompt=p, speech_format=speech_format, index=i) for i, p in enumerate(self.prompts)]
+        self.transcripts = [
+            Transcript(name=self.name, prompt=p, speech_format=speech_format, index=i) for i, p in enumerate(self.prompts)
+        ]
         self.cached_messages = {}
 
-    def receive_message(self, speaker: str, content: str, idx: int, supplemental: Optional[dict[Any, Any] | list[dict[Any, Any]]] = None):
+    def receive_message(
+        self, speaker: str, content: str, idx: int, supplemental: Optional[dict[Any, Any] | list[dict[Any, Any]]] = None
+    ):
         """
         The agent takes in a speech from another agent (or itself) and adds it to its internal transcript:
 

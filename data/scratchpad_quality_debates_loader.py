@@ -1,11 +1,14 @@
-import os
-import pickle
-from typing import Any, Optional
-
 from data.dataset import DataRow, DatasetType, RawDataLoader, SpeechData, SplitType
-from data.quality_debates_loader import QualityDebatesDataset, QualityDebatesLoader, QualityTranscriptsLoader
+from data.quality_debates_loader import QualityDebatesLoader, QualityDebatesDataset, QualityTranscriptsLoader
 from utils import quote_utils
 import utils.constants as constants
+
+from tqdm import tqdm
+
+from typing import Any, Optional
+import os
+import pickle
+import re
 
 
 class ScratchpadQualityDebatesDataset(QualityDebatesDataset):

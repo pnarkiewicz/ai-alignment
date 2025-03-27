@@ -2,34 +2,34 @@ from script_utils import ScriptUtils
 
 ScriptUtils.setup_script()
 
-import argparse
-import os
-import pickle
-import random
-import re
-
-from pydantic import BaseModel
-from tqdm import tqdm
-
 from data import QuoteRelevanceLoader, QuoteRelevanceProcessedBatchItem, QuoteRelevanceTopicInfo
-from models import ModelInput, OpenAIModel
+from models import OpenAIModel, ModelInput
 from prompts import RoleType
 from utils import input_utils
 import utils.constants as constants
 
+from pydantic import BaseModel
+from tqdm import tqdm
+
+import argparse
+import pickle
+import random
+import re
+import os
+
 DEFAULT_INSTRUCTIONS = """
-You will be presented with a topic that is going to be debated by two debaters as part of an educational exercise.
-They will be debating the answer to a reading comprehension question.
-They have read the story the question is about and their goal is to convince a judge as to the correct answer,
-despite the judge not having read the story themselves. As part of the preparations for this exercise,
-the debaters have selected quotes from a background story. I will present those quotes to you in order.
-Please respond whether you think that quote could potentially help support their side.
-Each numbered line is a separate quote. You should respond similarly, with a numeric rating
-(0 is completely irrelevant, 10 is obviously very relevant, 5 is potentially relevant)
-next to the appropriate numbered item. Do not provide any extra text.
+You will be presented with a topic that is going to be debated by two debaters as part of an educational exercise. 
+They will be debating the answer to a reading comprehension question. 
+They have read the story the question is about and their goal is to convince a judge as to the correct answer, 
+despite the judge not having read the story themselves. As part of the preparations for this exercise, 
+the debaters have selected quotes from a background story. I will present those quotes to you in order. 
+Please respond whether you think that quote could potentially help support their side. 
+Each numbered line is a separate quote. You should respond similarly, with a numeric rating 
+(0 is completely irrelevant, 10 is obviously very relevant, 5 is potentially relevant) 
+next to the appropriate numbered item. Do not provide any extra text. 
 If the debater did not provide any quotes, we will write 'None provided'. In that case, just ignore that debater.
 
-Example output format:
+Example output format: 
 
 Debater_A:
 1. 3
@@ -108,12 +108,16 @@ def get_topic(text: str):
         return question, first_position, second_position
     question = question_section.group(1).strip()
 
-    first_position_section = re.search(r"Debater_A will defend the position that the answer is \"(.*)\s*\"\s*\.\s*Debater_B", matching_text)
+    first_position_section = re.search(
+        r"Debater_A will defend the position that the answer is \"(.*)\s*\"\s*\.\s*Debater_B", matching_text
+    )
     if not first_position_section:
         return question, first_position, second_position
     first_position = first_position_section.group(1).strip()
 
-    second_position_section = re.search(r"Debater_B will defend the position that the answer is \"(.*)\s*\"\s*\.\s*", matching_text)
+    second_position_section = re.search(
+        r"Debater_B will defend the position that the answer is \"(.*)\s*\"\s*\.\s*", matching_text
+    )
     if not second_position_section:
         return question, first_position, second_position
     second_position = second_position_section.group(1).strip()
@@ -126,7 +130,9 @@ def process_scratchpad(scratchpad_text: str):
 
 
 def process_model_output(output: str, a_quote_list: list[str], b_quote_list: list[str]):
-    debater_a_match = re.search(f"{constants.DEFAULT_DEBATER_A_NAME}:(.*?){constants.DEFAULT_DEBATER_A_NAME}:", output, flags=re.DOTALL)
+    debater_a_match = re.search(
+        f"{constants.DEFAULT_DEBATER_A_NAME}:(.*?){constants.DEFAULT_DEBATER_A_NAME}:", output, flags=re.DOTALL
+    )
     debater_a_text = debater_a_match.group(1) if debater_a_match else ""
     debater_b_match = re.search(f"{constants.DEFAULT_DEBATER_B_NAME}:(.*)", output, flags=re.DOTALL)
     debater_b_text = debater_b_match.group(1) if debater_b_match else ""
@@ -188,16 +194,28 @@ if __name__ == "__main__":
                 a_quote_list=a_quote_list,
                 b_quote_list=b_quote_list,
                 model_input=ModelInput(role=RoleType.USER, content=instructions),
-                question_info=QuoteRelevanceTopicInfo(question=question, a_position=first_position, b_position=second_position),
+                question_info=QuoteRelevanceTopicInfo(
+                    question=question, a_position=first_position, b_position=second_position
+                ),
             )
         )
         if len(current_batch) == batch_size or i == len(input_texts) - 1:
             model_inputs = [[item.model_input] for item in current_batch]
-            predictions = model.predict(model_inputs) if not args.test else [model.predict(item.a_quote_list, item.b_quote_list) for item in current_batch]
+            predictions = (
+                model.predict(model_inputs)
+                if not args.test
+                else [model.predict(item.a_quote_list, item.b_quote_list) for item in current_batch]
+            )
 
             for prediction, item in zip(predictions, current_batch):
-                a_quote_map, b_quote_map = process_model_output(output=prediction, a_quote_list=item.a_quote_list, b_quote_list=item.b_quote_list)
-                results.append(QuoteRelevanceProcessedBatchItem(a_quote_map=a_quote_map, b_quote_map=b_quote_map, question_info=item.question_info))
+                a_quote_map, b_quote_map = process_model_output(
+                    output=prediction, a_quote_list=item.a_quote_list, b_quote_list=item.b_quote_list
+                )
+                results.append(
+                    QuoteRelevanceProcessedBatchItem(
+                        a_quote_map=a_quote_map, b_quote_map=b_quote_map, question_info=item.question_info
+                    )
+                )
                 total_score += sum(a_quote_map.values()) + sum(b_quote_map.values())
                 total_quotes += len(a_quote_map.values()) + len(b_quote_map.values())
 

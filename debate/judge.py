@@ -1,18 +1,22 @@
 from __future__ import annotations
 
-import copy
-from enum import auto, Enum
-import json
-import random
-from typing import Any, Optional
-
 from debate.agent import Agent, ScratchpadConfig
 from debate.speech_format import Speech, SpeechFormat, SpeechFormatType
-from debate.transcript import SpeechFormat, Transcript
+from debate.transcript import SpeechFormat, SpeechType, Transcript
 from models import Model, ModelResponse, SpeechStructure
-from prompts import Prompt
+from prompts import Prompt, PromptTag
 from utils import logger_utils
 import utils.constants as constants
+
+from enum import Enum, auto
+from typing import Any, Optional, Union
+import copy
+import json
+import math
+import os
+import random
+import re
+import sys
 
 
 class Judge(Agent):
@@ -50,7 +54,9 @@ class Judge(Agent):
             receive_validated_quotes=True,
             speech_format=speech_format
             if speech_format
-            else SpeechFormatType.DEFAULT_DEBATE_JUDGE.get_speech_format(name=name, num_speeches=num_speeches, use_scratchpad=scratchpad_config.use_scratchpad),
+            else SpeechFormatType.DEFAULT_DEBATE_JUDGE.get_speech_format(
+                name=name, num_speeches=num_speeches, use_scratchpad=scratchpad_config.use_scratchpad
+            ),
         )
         self.logger = logger_utils.get_default_logger(__name__)
         self.speech_structure = speech_structure
@@ -58,7 +64,9 @@ class Judge(Agent):
         self.scratchpad_config = scratchpad_config
         self.num_speeches = num_speeches
 
-    def generate(self, max_new_tokens: Optional[int] = None, speech_structure: SpeechStructure = SpeechStructure.OPEN_ENDED) -> [list[ModelResponse]]:
+    def generate(
+        self, max_new_tokens: Optional[int] = None, speech_structure: SpeechStructure = SpeechStructure.OPEN_ENDED
+    ) -> [list[ModelResponse]]:
         """Calls the underlying model to generate text"""
         model_inputs = [transcript.to_model_input() for transcript in self.transcripts]
         max_new_tokens = max_new_tokens if speech_structure == SpeechStructure.OPEN_ENDED else 15
@@ -150,7 +158,9 @@ class BranchedJudge(Judge):
 
         self.speeches_per_round = speeches_per_round
         self.num_rounds = self.internal_judge.speech_format.num_speeches
-        self.num_transcripts = BranchedJudge.NUM_BRANCHES ** (max(1, 2 * (self.num_rounds - (1 if self.speeches_per_round == 1 else 0))))
+        self.num_transcripts = BranchedJudge.NUM_BRANCHES ** (
+            max(1, 2 * (self.num_rounds - (1 if self.speeches_per_round == 1 else 0)))
+        )
         self.transcript_idx_to_speech_idx = {i: self.__get_speeches_for_transcript(i) for i in range(self.num_transcripts)}
         self.max_expected_speeches = max([max(val) + 1 for val in self.transcript_idx_to_speech_idx.values()])
         self.expected_transcripts = self.__get_expected_transcripts()
@@ -183,16 +193,24 @@ class BranchedJudge(Judge):
         if not self.internal_judge.get_next_expected_speaker():
             self.completed_transcripts.append(copy.deepcopy(self.internal_judge.transcripts[0]))
             next_idx = self.expected_transcripts[len(self.completed_transcripts) % len(self.expected_transcripts)]
-            self.__reset_agent_transcript(agent=self.debater_one, blank_transcript=self.empty_debater_one_transcript, idx=next_idx)
-            self.__reset_agent_transcript(agent=self.debater_two, blank_transcript=self.empty_debater_two_transcript, idx=next_idx)
-            self.__reset_agent_transcript(agent=self.internal_judge, blank_transcript=self.empty_judge_transcript, idx=next_idx)
+            self.__reset_agent_transcript(
+                agent=self.debater_one, blank_transcript=self.empty_debater_one_transcript, idx=next_idx
+            )
+            self.__reset_agent_transcript(
+                agent=self.debater_two, blank_transcript=self.empty_debater_two_transcript, idx=next_idx
+            )
+            self.__reset_agent_transcript(
+                agent=self.internal_judge, blank_transcript=self.empty_judge_transcript, idx=next_idx
+            )
 
     def get_next_expected_speaker(self):
         if len(self.completed_transcripts) >= len(self.expected_transcripts):
             return None
         return self.internal_judge.get_next_expected_speaker()
 
-    def receive_message(self, speaker: str, content: str, idx: int, supplemental: Optional[dict[Any, Any] | list[dict[Any, Any]]] = None):
+    def receive_message(
+        self, speaker: str, content: str, idx: int, supplemental: Optional[dict[Any, Any] | list[dict[Any, Any]]] = None
+    ):
         # ok we have to set where we think the expected speech should be
         if speaker != self.name:
             current_transcript_idx = self.expected_transcripts[len(self.completed_transcripts)]
@@ -200,7 +218,9 @@ class BranchedJudge(Judge):
             transcript_speech_idxs = self.transcript_idx_to_speech_idx[current_transcript_idx]
             insertion_speech_idx = transcript_speech_idxs[current_transcript_length]
             if not self.received_speeches[insertion_speech_idx]:
-                self.received_speeches[insertion_speech_idx] = Speech(speaker=speaker, content=content, supplemental=supplemental)
+                self.received_speeches[insertion_speech_idx] = Speech(
+                    speaker=speaker, content=content, supplemental=supplemental
+                )
         self.internal_judge.receive_message(speaker=speaker, content=content, idx=idx, supplemental=supplemental)
 
     def get_transcript(self, idx: int = 0) -> Transcript:
@@ -241,8 +261,12 @@ class BranchedJudge(Judge):
                 first_score = first_score if speaker == constants.DEFAULT_DEBATER_A_NAME else 1 - first_score
                 second_score = second_score if speaker == constants.DEFAULT_DEBATER_A_NAME else 1 - second_score
 
-                preferred_entry = self.received_speeches[first_idx] if first_score > second_score else self.received_speeches[second_idx]
-                rejected_entry = self.received_speeches[second_idx] if first_score > second_score else self.received_speeches[first_idx]
+                preferred_entry = (
+                    self.received_speeches[first_idx] if first_score > second_score else self.received_speeches[second_idx]
+                )
+                rejected_entry = (
+                    self.received_speeches[second_idx] if first_score > second_score else self.received_speeches[first_idx]
+                )
 
                 new_preferred_entry = Speech(
                     speaker=preferred_entry.speaker,
@@ -306,7 +330,9 @@ class BranchedJudge(Judge):
         for speech_idx in self.transcript_idx_to_speech_idx[idx]:
             if self.received_speeches[speech_idx]:
                 speech = self.received_speeches[speech_idx]
-                agent.receive_message(speaker=speech.speaker, content=speech.content, idx=0, supplemental=speech.supplemental)
+                agent.receive_message(
+                    speaker=speech.speaker, content=speech.content, idx=0, supplemental=speech.supplemental
+                )
 
     def __get_expected_transcripts(self):
         if self.setting == MultiRoundBranchingSetting.FULL:

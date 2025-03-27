@@ -1,16 +1,16 @@
-import copy
-import os
-import re
-from typing import Optional
+from debate import DebateRoundSummary
+import utils.constants as constants
 
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 import spacy
-import torch
 import torch.nn as nn
+import torch
 
-from debate import DebateRoundSummary
-import utils.constants as constants
+from typing import Optional
+import copy
+import os
+import re
 
 
 class PredictedAnnotation(BaseModel):
@@ -107,7 +107,10 @@ class Annotator:
         embeddings = self.base.encode(sentences)
         results = self.linear(torch.tensor(embeddings))
 
-        classification_results = [PredictedAnnotation(**{Annotator.TAGS[i]: prob.item() for i, prob in enumerate(self.softmax(result))}) for result in results]
+        classification_results = [
+            PredictedAnnotation(**{Annotator.TAGS[i]: prob.item() for i, prob in enumerate(self.softmax(result))})
+            for result in results
+        ]
 
         # remove quotes predictions first if we're going to precisely calculate later
         if config.special_quotes_handling:
@@ -137,7 +140,9 @@ class Annotator:
 
         if config.special_quotes_handling:
             temp_classification_results = []
-            for i, (sentence_length, sentence, result) in enumerate(zip(sentence_lengths, sentences, classification_results)):
+            for i, (sentence_length, sentence, result) in enumerate(
+                zip(sentence_lengths, sentences, classification_results)
+            ):
                 quote_matches = re.findall(
                     f"{constants.QUOTE_TAG}(.*?){constants.UNQUOTE_TAG}|{constants.QUOTE_TAG}(.*)|{constants.INVALID_QUOTE_TAG}(.*?){constants.INVALID_UNQUOTE_TAG}|{constants.INVALID_UNQUOTE_TAG}(.*)",
                     sentence,
@@ -153,13 +158,16 @@ class Annotator:
                     total_results = {tag: (prob * sentence_length) for tag, prob in result.dict().items()}
                     total_results["quote"] = quote_length
                     overall_total = max(sum(total_results.values()), 1)
-                    temp_classification_results.append(PredictedAnnotation(**{tag: total_results[tag] / overall_total for tag in total_results}))
+                    temp_classification_results.append(
+                        PredictedAnnotation(**{tag: total_results[tag] / overall_total for tag in total_results})
+                    )
                 else:
                     temp_classification_results.append(classification_results[i])
             classification_results = temp_classification_results
 
         sentence_classifications = [
-            SentenceClassification(sentence=sentence, annotation=annotation) for sentence, annotation in zip(sentences, classification_results)
+            SentenceClassification(sentence=sentence, annotation=annotation)
+            for sentence, annotation in zip(sentences, classification_results)
         ]
 
         cumulative_annotation = {tag: 0.0 for tag in Annotator.TAGS}
@@ -168,11 +176,15 @@ class Annotator:
                 cumulative_annotation[tag] += prob * (sentence_lengths[i] / paragraph_length)
 
         paragraph_annotation = PredictedAnnotation(**cumulative_annotation)
-        paragraph_classification = ParagraphClassification(paragraph=paragraph, annotation=paragraph_annotation, sentences=sentence_classifications)
+        paragraph_classification = ParagraphClassification(
+            paragraph=paragraph, annotation=paragraph_annotation, sentences=sentence_classifications
+        )
 
         return paragraph_classification
 
-    def classify_debate_round(self, summary: DebateRoundSummary, config: ClassificationConfig = DEFAULT_CONFIG) -> dict[str, list[ParagraphClassification]]:
+    def classify_debate_round(
+        self, summary: DebateRoundSummary, config: ClassificationConfig = DEFAULT_CONFIG
+    ) -> dict[str, list[ParagraphClassification]]:
         """Classifies each speech in the debate round"""
         speaker_to_classification = {}
         for speech in filter(
@@ -180,7 +192,11 @@ class Annotator:
             summary.transcript.speeches,
         ):
             classification = self.classify(paragraph=speech.content)
-            speaker_alias = summary.first_debater_alias if speech.speaker == constants.DEFAULT_DEBATER_A_NAME else summary.second_debater_alias
+            speaker_alias = (
+                summary.first_debater_alias
+                if speech.speaker == constants.DEFAULT_DEBATER_A_NAME
+                else summary.second_debater_alias
+            )
             speaker_to_classification.setdefault(speaker_alias, [])
             speaker_to_classification[speaker_alias].append(classification)
         for speaker, classifications in speaker_to_classification.items():
@@ -188,7 +204,9 @@ class Annotator:
             self.results[speaker] += classifications
         return speaker_to_classification
 
-    def get_results(self, percentile: float = 0.8) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]], dict[str, dict[str, float]]]:
+    def get_results(
+        self, percentile: float = 0.8
+    ) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]], dict[str, dict[str, float]]]:
         """
         Gets the average amounts of each label in the debate speeches collected so far.
         This is useful to tracking charts and metrics
