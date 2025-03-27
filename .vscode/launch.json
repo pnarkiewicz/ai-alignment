@@ -29,19 +29,6 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Run Iterative DPO",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "scripts/run_iterative_dpo.py",
-            "args": [
-                "--config=Test - Iterative",
-                "--load_only",
-                "--local",
-                "--test"
-            ],
-            "console": "integratedTerminal"
-        },
-        {
             "name": "Local DPO training",
             "type": "debugpy",
             "request": "launch",
