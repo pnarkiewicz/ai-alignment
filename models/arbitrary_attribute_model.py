@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import random
 import re
-from typing import Optional
 
 import utils.constants as constants
 import wandb
@@ -16,7 +15,7 @@ class ArbitraryAttributeModel(Model):
         self,
         alias: str,
         is_debater: bool = False,
-        feature: Optional[str] = None,
+        feature: str | None = None,
         **kwargs,
     ):
         """
@@ -32,6 +31,7 @@ class ArbitraryAttributeModel(Model):
         if is_debater:
             raise Exception("ArbitraryAttributeModel only supports judge mode")
         self.feature = feature or "quote"  # TODO: change
+        self.evaluate = False
 
     def predict(
         self,
@@ -87,9 +87,10 @@ class ArbitraryAttributeModel(Model):
             a_score = a_speech.count(self.feature)
             b_score = b_speech.count(self.feature)
 
-            wandb.log({"feature_count": a_score + b_score})
-            wandb.log({"generated_length": len(a_speech) + len(b_speech)})
-            wandb.log({"feature_frac": (a_score + b_score + 1e-5) / (len(a_speech) + len(b_speech) + 1e-5)})
+            if not self.evaluate:
+                wandb.log({"feature_count": a_score + b_score})
+                wandb.log({"generated_length": len(a_speech) + len(b_speech)})
+                wandb.log({"feature_frac": (a_score + b_score + 1e-5) / (len(a_speech) + len(b_speech) + 1e-5)})
 
             # b_score = 5  # TODO: change this
             random_val = random.random()
@@ -124,7 +125,8 @@ class ArbitraryAttributeModel(Model):
 
         if len(inputs) > 1 and num_return_sequences > 1:
             raise Exception(
-                f"Length of input ({len(inputs)}) and num_return_sequences ({num_return_sequences}) cannot both be greater than 1."
+                f"Length of input ({len(inputs)}) and num_return_sequences ({num_return_sequences}) cannot "
+                "both be greater than 1."
             )
 
         decisions = []
@@ -142,7 +144,7 @@ class ArbitraryAttributeModel(Model):
             )
         return decisions
 
-    def copy(self, alias: str, is_debater: Optional[bool] = None, **kwargs) -> RandomModel:
+    def copy(self, alias: str, is_debater: bool | None = None, **kwargs):
         """Generates a deepcopy of this model"""
         return ArbitraryAttributeModel(
             alias=alias,

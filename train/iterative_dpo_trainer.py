@@ -94,12 +94,12 @@ class IterativeDirectPreferenceTrainer:
         return Dataset.from_pandas(df).shuffle()
 
     def evaluate(self, epoch: int, epoch_size: int):
-        samples = self.get_samples(
-            start_idx=epoch * epoch_size, epoch_size=epoch_size, split=SplitType.TRAIN, evaluate=True
-        )
-        preference = sum(samples["preference"]) / len(samples["preference"])
-        print(f"Preference: {preference}")
+        self.model.eval()
+        samples = self.get_samples(start_idx=epoch * epoch_size, epoch_size=epoch_size, evaluate=True)
+        preference = sum(samples) / len(samples)
+        print(f"Preference: {preference}, minimum: {min(samples)}, maximum: {max(samples)}")
         wandb.log({"preference": preference})
+        self.model.train()
 
     def train(self, epoch_size: int = 128):
         self.evaluate(epoch=0, epoch_size=epoch_size)
@@ -191,6 +191,8 @@ class IterativeDirectPreferenceTrainer:
             new_samples = self.generate_one_round_samples(idx=start_idx + i, split=split, evaluate=evaluate)
             samples.extend(new_samples)
 
+        if evaluate:
+            return samples
         return self.convert_dataset([JudgePreferencesDataset(train_data=samples, val_data=[], test_data=[])])
 
     def generate_one_round_samples(self, idx: int, split: SplitType = SplitType.TRAIN, evaluate: bool = False):
@@ -343,6 +345,25 @@ class IterativeDirectPreferenceTrainer:
             num_speeches=num_speeches,
         )
 
+        if evaluate:
+            non_random_judge.model.evaluate = True
+            debate_round = DebateRound(
+                first_debater=original_debater_a,
+                second_debater=original_debater_b,
+                judge=non_random_judge,
+                metadata=[question_metadata],
+            )
+            summary = debate_round()
+            non_random_judge.model.evaluate = False
+            summary = summary[0]
+            if DEBUG:
+                print("Speeches:")
+                print("A ", summary.transcript.speeches[0].content)
+                print("B ", summary.transcript.speeches[1].content)
+
+            transcript_json = non_random_judge.transcripts[0].json_value()
+            return [transcript_json["speeches"][-1]["supplemental"]["probabilistic_decision"]["Debater_A"]]
+
         debater_a = BestOfNDebater(
             debater=original_debater_a,
             opposing_debater=original_debater_b,
@@ -382,4 +403,6 @@ class IterativeDirectPreferenceTrainer:
             print("B ", summary.transcript.speeches[1].content)
 
         transcript_json = random_judge.transcripts[0].json_value()
+        if evaluate:
+            breakpoint()
         return JudgePreferencesLoader.process_row(transcript_json)
