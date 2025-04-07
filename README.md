@@ -66,6 +66,50 @@ To configure this extension one has to run
 pre-commit install
 ```
 
+## Building an Apptainer Image on Mac (M1/M2/M3)
+
+### Requirements
+
+- macOS with Apple Silicon (M1/M2/M3)
+- [Lima](https://github.com/lima-vm/lima) installed
+- QEMU installed (for x86\_64 emulation)
+
+One can install it with 
+```bash
+brew install qemu lima
+```
+
+### Steps
+
+1. **Create an x86\_64 Lima Instance Using QEMU**
+
+```bash
+limactl create --vm-type=qemu --arch=x86_64 --name=apptainer template://apptainer
+limactl start apptainer
+```
+
+This ensures the guest OS is running with x86\_64 architecture so the image will be compatible with AMD64-based HPC systems.
+
+2. **Build the Image Inside the Instance**
+
+```bash
+limactl shell apptainer
+apptainer build /tmp/lima/image.sif Singularity.def
+```
+
+This creates a `.sif` image compatible with x86\_64 systems.
+
+*Alternative: Apptainer 1.4.0*
+
+When Apptainer 1.4.0 will become available on [https://launchpad.net/~apptainer/+archive/ubuntu/ppa] one can build image faster without emulating on QEMU.
+
+```bash
+limactl create --name=apptainer template://apptainer
+limactl start apptainer
+apptainer build --arch amd64 /tmp/lima/image.sif Singularity.def # --arch arg is available
+```
+
+
 ## Setup
 
 Note: Given the current state of this project, this README will just give an overview of the code structure. It is not an introduction to the overall effort.
