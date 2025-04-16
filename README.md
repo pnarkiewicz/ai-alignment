@@ -1,6 +1,8 @@
 #  NYU Debate Modeling Project
 
 TRL Online DPO Trainer: https://github.com/huggingface/trl/blob/main/trl/trainer/online_dpo_trainer.py
+Online DPO trainer: https://github.com/pnarkiewicz/ai-alignment/blob/wp---online-ipo/train/online_dpo_trainer.py
+Smoothed online trainer: https://github.com/pnarkiewicz/ai-alignment/blob/wp---online-ipo/train/impl/smoothed_online_dpo_trainer.py
 
 ## Local DPO train
 * Oparty na modelu: https://huggingface.co/delphi-suite/v0-llama2-100k
