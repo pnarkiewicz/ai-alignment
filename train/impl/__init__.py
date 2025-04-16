@@ -1,2 +1,4 @@
 from .smoothed_dpo_trainer import SmoothedDPOTrainer
+from .smoothed_online_dpo_trainer import SmoothedOnlineDPOTrainer
+from .smoothed_online_dpo_trainer_copy import SmoothedOnlineDPOTrainerV2
 from .verbose_ppo_trainer import VerbosePPOTrainer

@@ -7,3 +7,5 @@ __pycache__/
 *.py[cod]
 *$py.class
 wandb/
+hf_models/
+trl_dev*
