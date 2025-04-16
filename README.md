@@ -1,5 +1,7 @@
 #  NYU Debate Modeling Project
 
+TRL Online DPO Trainer: https://github.com/huggingface/trl/blob/main/trl/trainer/online_dpo_trainer.py
+
 ## Local DPO train
 * Oparty na modelu: https://huggingface.co/delphi-suite/v0-llama2-100k
 * Należy w pliku konfiguracyjnym `ai-ailgnment/train/configs/dpo_config.yaml` zaktualizować:
