@@ -68,7 +68,8 @@ pre-commit install
 
 ## Building an Apptainer Image on Mac (M1/M2/M3)
 
-### Requirements
+### Virtualization with Qemu (easier)
+#### Requirements
 
 - macOS with Apple Silicon (M1/M2/M3)
 - [Lima](https://github.com/lima-vm/lima) installed
@@ -79,7 +80,7 @@ One can install it with
 brew install qemu lima
 ```
 
-### Steps
+#### Steps
 
 1. **Create an x86\_64 Lima Instance Using QEMU**
 
@@ -99,16 +100,116 @@ apptainer build /tmp/lima/image.sif Singularity.def
 
 This creates a `.sif` image compatible with x86\_64 systems.
 
-*Alternative: Apptainer 1.4.0*
+### The newest version of apptainer build from source
 
-When Apptainer 1.4.0 will become available on [https://launchpad.net/~apptainer/+archive/ubuntu/ppa] one can build image faster without emulating on QEMU.
+#### Apptainer 1.4.0
+The newest version of apptainer has `--arch` arg, so the x86\_64 emulation isn't needed.
+`apptainer build --arch amd64 /tmp/lima/image.sif Singularity.def # --arch arg is available`
+
+This part can be removed when Apptainer 1.4.0 will become available on [https://launchpad.net/~apptainer/+archive/ubuntu/ppa].
+If so, only commands below will be needed.
 
 ```bash
 limactl create --name=apptainer template://apptainer
-limactl start apptainer
+limactl start apptainers
 apptainer build --arch amd64 /tmp/lima/image.sif Singularity.def # --arch arg is available
 ```
 
+#### Installing Apptainer 1.4.0 from Source with Cross-Build Support
+
+This guide walks you through starting a Lima VM (with Rosetta support), installing required build dependencies, building Apptainer 1.4.0 from source, and using the new `--arch` flag to create an x86_64 container image—all while using temporary directories.
+
+##### 1. Start the Lima VM with Rosetta
+
+Launch the Lima VM (without needing persistence for this build):
+
+```bash
+limactl start template://apptainer --vm-type=vz --rosetta --name apptainer
+```
+
+###### 2. Install Build Dependencies
+
+Inside the Lima shell, update the package list and install essential development tools. This ensures you have a C compiler, make, and other build essentials.
+
+```bash
+sudo apt update
+sudo apt install -y build-essential
+```
+
+###### 3. (Optional) Install Go
+
+Apptainer’s build requires Go (v1.22.7+). If it’s not already installed, do the following:
+
+```bash
+cd /tmp
+wget https://go.dev/dl/go1.22.7.linux-arm64.tar.gz
+sudo rm -rf /usr/local/go
+sudo tar -C /usr/local -xzf go1.22.7.linux-arm64.tar.gz
+export PATH=/usr/local/go/bin:$PATH
+```
+
+Verify installation:
+
+```bash
+go version
+# Expected output: go version go1.22.7 linux/arm64
+```
+
+###### 4. Download and Extract the Apptainer 1.4.0 Source
+
+Since these files are temporary, use the **/tmp** directory:
+
+```bash
+cd /tmp
+wget https://github.com/apptainer/apptainer/releases/download/v1.4.0/apptainer-1.4.0.tar.gz
+tar -xzf apptainer-1.4.0.tar.gz
+cd apptainer-1.4.0
+```
+
+###### 5. Configure, Build, and Install Apptainer
+
+Run the configuration script with your desired prefix, then compile and install:
+
+```bash
+./mconfig --prefix=/usr/local
+make -C builddir
+sudo make -C builddir install
+```
+
+Verify the installation:
+
+```bash
+apptainer --version
+# Expected output: apptainer version 1.4.0
+```
+
+###### 6. Cross-Build an x86_64 Container Image
+
+Assuming our definition file is named **Singularity.def**, build the image targeting the amd64 architecture:
+
+```bash
+apptainer build --arch amd64 /tmp/lima/singularity.sif Singularity.def
+```
+
+## 7. Transfer the Container Image
+
+Assuming one's `.ssh/config` has the following entry
+```
+Host athena
+    HostName athena.cyfronet.pl
+    User user        
+    ForwardAgent yes
+    IdentityFile your_identity_file
+```
+One can copy the image to a remote HPC system using rsync:
+
+```bash
+rsync -avP /tmp/lima/sing.sif athena:/net/people/plgrid/$YOURUSERNAME/singularity.sif
+```
+
+---
+
+This guide keeps your build environment clean by using **/tmp** for temporary files and ensures all necessary dependencies are installed. You now have an ARM-native Apptainer installation that can build x86_64 container images using the new `--arch` flag.
 
 ## Setup
 
