@@ -1,3 +1,36 @@
+Online Local Train:
+    model_name: checkpoints/v0-llama2-100k # download from https://huggingface.co/delphi-suite/v0-llama2-100k 
+    target: debater
+    llm_type: llama
+    max_length: 4096
+    training_hyperparameters:
+        steps: 20
+        num_train_epochs: 1
+        per_device_train_batch_size: 1
+        gradient_accumulation_steps: 1
+        optim: adamw_torch # (no bits and bytes locally)
+        learning_rate: 2e-4
+        max_grad_norm: 0.1
+        warmup_ratio: 0.03
+        lr_scheduler_type: constant
+        peft_type: lora
+        target_module: all
+        lora_rank: 512
+        supplemental:
+            epoch_size: 4   # num examples used per step
+            save_steps: 4
+            reward_type: prob
+            loss_type: bon
+            multiplier: 7
+            judge_type: arbitrary_attribute
+            judge_feature: "l"
+            online: True
+    logging_and_saving_config:
+        logging_steps: 5
+        output_dir: checkpoints/output/v0-llama2-100k
+    dataset:
+        dataset_type: quality
+        split_type: train
 Local Train:
     model_name: checkpoints/v0-llama2-100k # download from https://huggingface.co/delphi-suite/v0-llama2-100k 
     target: debater
@@ -26,7 +59,7 @@ Local Train:
             judge_feature: "l"
     logging_and_saving_config:
         logging_steps: 5
-        output_dir: checkpoints/path/to/save/model
+        output_dir: checkpoints/output/v0-llama2-100k
     dataset:
         dataset_type: quality
         split_type: train
