@@ -42,7 +42,7 @@ From: nvidia/cuda:12.4.0-devel-ubuntu22.04
     # Now install bitsandbytes from source. It is recommended to install bitsandbytes from source to ensure compatibility with the CUDA version.
     # https://huggingface.co/docs/bitsandbytes/main/en/installation#cuda-compile
     echo "Cloning bitsandbytes repository..."
-    git clone --branch v0.46.0 https://github.com/bitsandbytes-foundation/bitsandbytes.git /opt/bitsandbytes 
+    git clone --branch 0.45.1 https://github.com/bitsandbytes-foundation/bitsandbytes.git /opt/bitsandbytes 
 
     echo "Building bitsandbytes from source..."
     cd /opt/bitsandbytes
