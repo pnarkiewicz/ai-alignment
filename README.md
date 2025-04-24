@@ -66,6 +66,43 @@ To configure this extension one has to run
 pre-commit install
 ```
 
+## Athena Setup Notes - Running the Singularity/Apptainer image
+### .env
+Remember to create the `.env` file first with
+```
+SRC_ROOT=/PATH/TO/REPO/
+INPUT_ROOT=/PATH/TO/REPO/data/datasets/
+```
+
+### 1. Start an **interactive** session (GPU-aware)
+Allocate and run interactively a SLURM job
+```bash
+srun  --partition=plgrid-gpu-a100 --gres=gpu:1 --mem 32G --account=plgdebates2-gpu-a100 --time 0-01:00:00 --pty bash
+```
+Start an apptainer session
+```bash
+# If you’re already on a login node and have the image:
+singularity shell \
+  --nv                              # forward the NVIDIA driver to the container
+  --home  /ABS/PATH/TO/PROJECT_DIR  # maps project into $HOME inside the image
+  /ABS/PATH/TO/singularity.sif      # One can find jfpio images in /net/people/plgrid/plgjfpio/alignment_storage/singularity
+```
+
+### 2. Run one-off commands with **exec**
+
+```bash
+singularity exec --nv \
+  --home /ABS/PATH/TO/PROJECT_DIR \
+  /ABS/PATH/TO/singularity.sif \
+  python scripts/run_debate.py \
+    --configuration Simple_Test \
+    --num_iters 1 --local --test --suppress_graphs --log_level INFO
+```
+
+Anything after the image path is executed **inside** the container, so you can
+chain it with `srun`, `sbatch`, etc.
+
+
 ## Building an Apptainer Image on Mac (M1/M2/M3)
 
 ### Virtualization with Qemu (easier)
