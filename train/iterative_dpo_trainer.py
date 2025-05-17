@@ -271,6 +271,7 @@ class IterativeDirectPreferenceTrainer:
         )
 
         num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
+        # num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 2))
 
         original_debater_a = Debater(
             name=constants.DEFAULT_DEBATER_A_NAME,
@@ -401,8 +402,9 @@ class IterativeDirectPreferenceTrainer:
         summary = summary[0]
         if DEBUG:
             print("Speeches:")
-            print("A ", summary.transcript.speeches[0].content)
-            print("B ", summary.transcript.speeches[1].content)
+            for i in range(len(summary.transcript.speeches)):
+                speaker = 'A' if i % 2 == 0 else 'B'
+                print(f"{speaker} ", summary.transcript.speeches[i].content)
 
         transcript_json = random_judge.transcripts[0].json_value()
         if evaluate:
