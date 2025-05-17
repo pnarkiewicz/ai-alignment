@@ -92,9 +92,7 @@ class ArbitraryAttributeModel(Model):
                 wandb.log({"generated_length": len(a_speech) + len(b_speech)})
                 wandb.log({"feature_frac": (a_score + b_score + 1e-5) / (len(a_speech) + len(b_speech) + 1e-5)})
 
-            # b_score = 5  # TODO: change this
             random_val = random.random()
-
             epsilon = 1e-2
             rand1 = random.random() * epsilon
             rand2 = random.random() * epsilon

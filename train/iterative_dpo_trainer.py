@@ -95,7 +95,9 @@ class IterativeDirectPreferenceTrainer:
 
     def evaluate(self, epoch: int, epoch_size: int):
         self.model.eval()
-        samples = self.get_samples(start_idx=epoch * epoch_size, epoch_size=epoch_size, evaluate=True)
+        samples = self.get_samples(
+            start_idx=epoch * epoch_size, epoch_size=epoch_size, split=SplitType.VAL, evaluate=True
+        )
         preference = sum(samples) / len(samples)
         print(f"Preference: {preference}, minimum: {min(samples)}, maximum: {max(samples)}")
         wandb.log({"preference": preference})
@@ -105,7 +107,7 @@ class IterativeDirectPreferenceTrainer:
         self.evaluate(epoch=0, epoch_size=epoch_size)
         for epoch in range(self.config.training_hyperparameters.steps):
             self.step(epoch=epoch, epoch_size=epoch_size)
-            self.evaluate(epoch=epoch, epoch_size=epoch_size)
+            # self.evaluate(epoch=epoch, epoch_size=epoch_size)
 
     def step(self, epoch: int, epoch_size: int):
         output_suffix = f"/checkpoint-{epoch}" if epoch < self.config.training_hyperparameters.steps - 1 else ""
