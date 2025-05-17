@@ -70,14 +70,14 @@ class ArbitraryAttributeModel(Model):
             speeches = [speech for speech in filter(lambda x: x.role == RoleType.USER, model_inputs)]
 
             a_speech_pre = re.search(
-                "This is what Debater_A said during their speech.(.*)This is what Debater_B said during their speech",
+                "This is what Debater_A said during their speech.(.*)(This is what Debater_B said during their speech|Now it is the time for a decision)",
                 speeches[-1].content,
                 flags=re.DOTALL,
             )
 
             a_speech = a_speech_pre.group(1).strip()
             b_speech_pre = re.search(
-                "This is what Debater_B said during their speech.(.*)Now it is the time for a decision",
+                "This is what Debater_B said during their speech.(.*)(This is what Debater_A said during their speech|Now it is the time for a decision)",
                 speeches[-1].content,
                 flags=re.DOTALL,
             )
