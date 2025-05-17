@@ -1,5 +1,5 @@
+import os
 import random
-import re
 from typing import Any, Optional
 
 from datasets import load_dataset
@@ -12,6 +12,7 @@ from data.quality_judging_loader import QualityJudgingLoader
 from data.quality_loader import QualityLoader
 from data.quote_relevance_loader import QuoteRelevanceLoader
 from data.scratchpad_quality_debates_loader import ScratchpadQualityDebatesLoader
+from utils import constants
 
 """
 Most of the methods are taken from the QualityDataset class. Some might be not used.
@@ -146,9 +147,9 @@ class TruthfulLoader(RawDataLoader):
         test_filepath: Optional[str] = None,
     ) -> tuple[list[dict]]:
         """Splits the data in train, val, and test sets"""
-        from utils.constants import TRUTHFUL_DATASET_PATH
+        DEFAULT_FILE_PATH = os.environ[constants.SRC_ROOT] + "data/datasets/TruthfulQA"
 
-        dataset = load_dataset(TRUTHFUL_DATASET_PATH)["train"]
+        dataset = load_dataset(DEFAULT_FILE_PATH)["train"]
         # TODO: It would be better to split to files so they are separated
         seed = 42
         train_data, tmp = dataset.train_test_split(test_size=0.2, seed=seed, shuffle=True).values()
