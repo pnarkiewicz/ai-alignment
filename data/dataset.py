@@ -26,6 +26,7 @@ class DatasetType(Enum):
     EXTERNAL_HUGGINGFACE = (10, False)
     TRUTHFUL = (11, True)
     KHUN_POKER = (12, True)  # TODO: not implemented yet
+    GSM8K = (13, True)
 
     def __init__(self, idx: int, is_instantiable: bool):
         self.id = idx

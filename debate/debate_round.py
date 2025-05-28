@@ -94,20 +94,33 @@ class DebateRound:
             try:
                 batch_response, model_output = speaker()
             except Exception as e:
-                self.logger.error("Received an error while trying to generate a speech %s", str(e), exc_info=True)
+                self.logger.error(
+                    "Received an error while trying to generate a speech %s",
+                    str(e),
+                    exc_info=True,
+                )
                 return None, None
-
             for idx, (response, output) in enumerate(zip(batch_response, model_output)):
                 validated_response = str(response)
                 if speaker.quotes_require_validation:
                     validated_response = quote_utils.validate_and_replace_quotes(
                         speech_content=str(response),
-                        background_text=self.metadata[min(idx, len(self.metadata) - 1)].background_text,
+                        background_text=self.metadata[
+                            min(idx, len(self.metadata) - 1)
+                        ].background_text,
                     )
                 for _, agent in self.name_to_agent.items():
-                    response_to_use = validated_response if agent.receive_validated_quotes else response
-                    agent.receive_message(speaker=speaker.name, content=response_to_use, idx=idx, supplemental=output)
-
+                    response_to_use = (
+                        validated_response
+                        if agent.receive_validated_quotes
+                        else response
+                    )
+                    agent.receive_message(
+                        speaker=speaker.name,
+                        content=response_to_use,
+                        idx=idx,
+                        supplemental=output,
+                    )
             self.judge.post_speech_processing()
             next_speaker = self.judge.get_next_expected_speaker()
 
@@ -129,12 +142,20 @@ class DebateRound:
         first_debater_win_list = []
         winning_probability_list = []
         failed_list = []
-        for i, (debater_a_wins, model_output) in enumerate(zip(last_output, last_model_output)):
-            winner = constants.DEFAULT_DEBATER_A_NAME if debater_a_wins else constants.DEFAULT_DEBATER_B_NAME
+        for i, (debater_a_wins, model_output) in enumerate(
+            zip(last_output, last_model_output)
+        ):
+            winner = (
+                constants.DEFAULT_DEBATER_A_NAME
+                if debater_a_wins
+                else constants.DEFAULT_DEBATER_B_NAME
+            )
             first_debater_win_list.append(winner == self.first_debater.name)
             string_value = self.judge.get_transcript(idx=i).full_string_value()
             winning_probability_list.append(
-                1.0 if not model_output.probabilistic_decision else model_output.probabilistic_decision[winner]
+                1.0
+                if not model_output.probabilistic_decision
+                else model_output.probabilistic_decision[winner]
             )
             failed_list.append(model_output.failed)
             self.logger.debug(string_value)
@@ -149,21 +170,31 @@ class DebateRound:
             DebateRoundSummary(
                 metadata=self.metadata[i % len(self.metadata)],
                 transcript=self.judge.get_transcript(idx=i),
-                winning_alias=self.first_debater.get_alias() if first_debater_wins else self.second_debater.get_alias(),
-                losing_alias=self.first_debater.get_alias()
-                if not first_debater_wins
-                else self.second_debater.get_alias(),
+                winning_alias=(
+                    self.first_debater.get_alias()
+                    if first_debater_wins
+                    else self.second_debater.get_alias()
+                ),
+                losing_alias=(
+                    self.first_debater.get_alias()
+                    if not first_debater_wins
+                    else self.second_debater.get_alias()
+                ),
                 first_debater_alias=self.first_debater.get_alias(),
                 second_debater_alias=self.second_debater.get_alias(),
                 first_debater_wins=first_debater_wins,
                 judge_alias=self.judge.get_alias(),
                 winning_debater_prob=winning_probability_list[i],
-                first_debater_win_prob=winning_probability_list[i]
-                if first_debater_wins
-                else (1 - winning_probability_list[i]),
-                second_debater_win_prob=(1 - winning_probability_list[i])
-                if first_debater_wins
-                else winning_probability_list[i],
+                first_debater_win_prob=(
+                    winning_probability_list[i]
+                    if first_debater_wins
+                    else (1 - winning_probability_list[i])
+                ),
+                second_debater_win_prob=(
+                    (1 - winning_probability_list[i])
+                    if first_debater_wins
+                    else winning_probability_list[i]
+                ),
                 first_debater_speaks=constants.DEFAULT_DEBATER_A_NAME
                 in self.judge.get_transcript(idx=i).get_speakers(),
                 second_debater_speaks=constants.DEFAULT_DEBATER_B_NAME
@@ -173,7 +204,9 @@ class DebateRound:
             for i, first_debater_wins in enumerate(first_debater_win_list)
         ]
 
-    def __call__(self, save_file_path_prefix: Optional[str] = None) -> list[DebateRoundSummary]:
+    def __call__(
+        self, save_file_path_prefix: Optional[str] = None
+    ) -> list[DebateRoundSummary]:
         """Runs the round and generates a summary of the results"""
         last_output, last_model_output = self.run_round()
         return self.record_winners(
