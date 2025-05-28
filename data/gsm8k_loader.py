@@ -3,20 +3,24 @@ import random
 from typing import Any, Optional
 
 from datasets import load_dataset
+import numpy as np
+import pandas as pd
+from datasets import Dataset
 
-from data.annotated_quality_debates_loader import AnnotatedQualityDebatesLoader
 from data.dataset import DataRow, DatasetType, RawDataLoader, RawDataset, SplitType
-from data.judge_preferences_loader import CorrectnessJudgePreferencesLoader, JudgePreferencesLoader
-from data.quality_debates_loader import QualityConsultancyLoader, QualityDebatesLoader, QualityTranscriptsLoader
-from data.quality_judging_loader import QualityJudgingLoader
-from data.quality_loader import QualityLoader
-from data.gsm8k_loader import GSM8KLoader
-from data.quote_relevance_loader import QuoteRelevanceLoader
-from data.scratchpad_quality_debates_loader import ScratchpadQualityDebatesLoader
+from data.quality_debates_loader import (
+    QualityConsultancyLoader,
+    QualityDebatesLoader,
+    QualityTranscriptsLoader,
+)
 from utils import constants
 
+"""
+Most of the methods are taken from the QualityDataset class. Some might be not used.
+"""
 
-class TruthfulDataset(RawDataset):
+
+class GSM8KDataset(RawDataset):
     def __init__(
         self,
         train_data: list[dict[str, Any]],
@@ -49,7 +53,9 @@ class TruthfulDataset(RawDataset):
         super().__init__(override_type or DatasetType.QUALITY)
         if shuffle_deterministically:
             random.seed(a=123456789)
-        self.allow_multiple_positions_per_question = allow_multiple_positions_per_question
+        self.allow_multiple_positions_per_question = (
+            allow_multiple_positions_per_question
+        )
         self.flip_sides = flip_sides
         self.data = {
             SplitType.TRAIN: self.__convert_batch_to_rows(train_data),
@@ -57,7 +63,9 @@ class TruthfulDataset(RawDataset):
             SplitType.TEST: self.__convert_batch_to_rows(test_data),
         }
         self.idxs = {SplitType.TRAIN: 0, SplitType.VAL: 0, SplitType.TEST: 0}
-        if not self.data[SplitType.TEST]:  # Adding b/c Quality Test Set does not have gold labels
+        if not self.data[
+            SplitType.TEST
+        ]:  # Adding b/c Quality Test Set does not have gold labels
             self.__split_validation_and_test_sets()
 
         self.data[SplitType.TRAIN] = self.__reorder(self.data[SplitType.TRAIN])
@@ -68,15 +76,27 @@ class TruthfulDataset(RawDataset):
     def get_data(self, split: SplitType = SplitType.TRAIN) -> list[DataRow]:
         """Returns all the data for a given split"""
         if split not in self.data:
-            raise ValueError(f"Split type {split} is not recognized. Only TRAIN, VAL, and TEST are recognized")
+            raise ValueError(
+                f"Split type {split} is not recognized. Only TRAIN, VAL, and TEST are recognized"
+            )
         return self.data[split]
 
-    def get_batch(self, split: SplitType = SplitType.TRAIN, batch_size: int = 1) -> list[DataRow]:
+    def get_batch(
+        self, split: SplitType = SplitType.TRAIN, batch_size: int = 1
+    ) -> list[DataRow]:
         """Returns a subset of the data for a given split"""
         if batch_size < 1:
-            raise ValueError(f"Batch size must be >= 1. Inputted batch size was {batch_size}")
-        data_to_return = self.data[split][self.idxs[split] : min(self.idxs[split] + batch_size, len(self.data[split]))]
-        self.idxs[split] = self.idxs[split] + batch_size if self.idxs[split] + batch_size < len(self.data[split]) else 0
+            raise ValueError(
+                f"Batch size must be >= 1. Inputted batch size was {batch_size}"
+            )
+        data_to_return = self.data[split][
+            self.idxs[split] : min(self.idxs[split] + batch_size, len(self.data[split]))
+        ]
+        self.idxs[split] = (
+            self.idxs[split] + batch_size
+            if self.idxs[split] + batch_size < len(self.data[split])
+            else 0
+        )
         return [x for x in data_to_return]
 
     def get_example(self, split: SplitType = SplitType.TRAIN, idx: int = 0) -> DataRow:
@@ -86,29 +106,40 @@ class TruthfulDataset(RawDataset):
     def __convert_batch_to_rows(self, batch: list[dict[str, Any]]):
         rows = []
         for entry in batch:
-            correct_answer = entry["Best Answer"]
-            incorrect_answer = entry["Incorrect Answers"].split(";")[0]
+            correct_answer = entry["answer"].split("#### ")[-1].replace(",", "")
+            error = np.random.randint(
+                low=-max(abs(int(correct_answer) // 5), 5),
+                high=max(abs(int(correct_answer) // 5), 5),
+            )
+            error = 5 if error == 0 else error
+            incorrect_answer = str(int(correct_answer) + error)
             first_correct = random.random() < 0.5
             data_row = DataRow(
-                background_text=entry["Question"],
-                question=entry["Question"],
+                background_text=entry["question"],
+                question=entry["question"],
                 correct_index=0 if first_correct else 1,
                 positions=(
-                    correct_answer,
-                    incorrect_answer,
-                ) if first_correct else (
-                    incorrect_answer,
-                    correct_answer,
+                    (
+                        correct_answer,
+                        incorrect_answer,
+                    )
+                    if first_correct
+                    else (
+                        incorrect_answer,
+                        correct_answer,
+                    )
                 ),
-                story_title=entry["Question"],
-                debate_id=entry["Question"],
+                story_title="",
+                debate_id=entry["question"],
             )
             rows.append(data_row)
         return rows
 
     def __split_validation_and_test_sets(self):
         second_half = self.data[SplitType.VAL][int(len(self.data[SplitType.VAL]) / 2) :]
-        self.data[SplitType.VAL] = self.data[SplitType.VAL][0 : int(len(self.data[SplitType.VAL]) / 2)]
+        self.data[SplitType.VAL] = self.data[SplitType.VAL][
+            0 : int(len(self.data[SplitType.VAL]) / 2)
+        ]
         val_stories = set([row.story_title for row in self.data[SplitType.VAL]])
 
         test_data = []
@@ -138,7 +169,7 @@ class TruthfulDataset(RawDataset):
         return final_order
 
 
-class TruthfulLoader(RawDataLoader):
+class GSM8KLoader(RawDataLoader):
     @classmethod
     def get_splits(
         cls,
@@ -147,13 +178,22 @@ class TruthfulLoader(RawDataLoader):
         test_filepath: Optional[str] = None,
     ) -> tuple[list[dict]]:
         """Splits the data in train, val, and test sets"""
-        DEFAULT_FILE_PATH = os.environ[constants.SRC_ROOT] + "data/datasets/TruthfulQA"
+        import os
 
-        dataset = load_dataset(DEFAULT_FILE_PATH)["train"]
+        os.environ["HF_DATASETS_CACHE"] = "data/datasets/gsm8k"
+        DEFAULT_FILE_PATH = (
+            os.environ[constants.SRC_ROOT] + "data/datasets/gsm8k/GSM8k.csv"
+        )
+        dataset = pd.read_csv(DEFAULT_FILE_PATH)
+        dataset = Dataset.from_pandas(dataset)
         # TODO: It would be better to split to files so they are separated
         seed = 42
-        train_data, tmp = dataset.train_test_split(test_size=0.2, seed=seed, shuffle=True).values()
-        val_data, test_data = tmp.train_test_split(test_size=0.5, seed=seed, shuffle=True).values()
+        train_data, tmp = dataset.train_test_split(
+            test_size=0.2, seed=seed, shuffle=True
+        ).values()
+        val_data, test_data = tmp.train_test_split(
+            test_size=0.5, seed=seed, shuffle=True
+        ).values()
         return train_data, val_data, test_data
 
     @classmethod
@@ -168,59 +208,19 @@ class TruthfulLoader(RawDataLoader):
         flip_sides: bool = False,
         shuffle_deterministically: bool = False,
         **kwargs,
-    ) -> TruthfulDataset:
+    ) -> GSM8KDataset:
         """Constructs a QualityDataset"""
-        train_split, val_split, test_split = TruthfulLoader.get_splits(
-            train_filepath=train_filepath, val_filepath=val_filepath, test_filepath=test_filepath
+        train_split, val_split, test_split = GSM8KLoader.get_splits(
+            train_filepath=train_filepath,
+            val_filepath=val_filepath,
+            test_filepath=test_filepath,
         )
 
-        dedupe_datasets = None
-        if deduplicate_with_quality_debates:
-            quality_debates_filepath = (supplemental_file_paths or {}).get(
-                "quality_debates_file_path", QualityTranscriptsLoader.DEFAULT_FILE_PATH
-            )
-            quality_debates_dataset = QualityDebatesLoader.load(
-                full_dataset_filepath=quality_debates_filepath, deduplicate=True
-            )
-            quality_consultancy_dataset = QualityConsultancyLoader.load(
-                full_dataset_filepath=quality_debates_filepath, deduplicate=True
-            )
-            dedupe_datasets = [(quality_debates_dataset, True), (quality_consultancy_dataset, True)]
-
-        return TruthfulDataset(
+        return GSM8KDataset(
             train_data=train_split,
             val_data=val_split,
             test_data=test_split,
             allow_multiple_positions_per_question=allow_multiple_positions_per_question,
-            dedupe_dataset=dedupe_datasets,
             flip_sides=flip_sides,
             shuffle_deterministically=shuffle_deterministically,
         )
-
-
-def get_loader_type(dataset_type: DatasetType) -> type[RawDataLoader]:
-    """Returns the class associated with the inputted DatasetType"""
-    if dataset_type == DatasetType.QUALITY:
-        return QualityLoader
-    elif dataset_type == DatasetType.QUALITY_DEBATES:
-        return QualityDebatesLoader
-    elif dataset_type == DatasetType.JUDGE_PREFERENCES:
-        return JudgePreferencesLoader
-    elif dataset_type == DatasetType.ANNOTATED_QUALITY_DEBATES:
-        return AnnotatedQualityDebatesLoader
-    elif dataset_type == DatasetType.SCRATCHPAD_QUALITY_DEBATES:
-        return ScratchpadQualityDebatesLoader
-    elif dataset_type == DatasetType.QUOTE_RELEVANCE:
-        return QuoteRelevanceLoader
-    elif dataset_type == DatasetType.JUDGING_PROBE:
-        return QualityJudgingLoader
-    elif dataset_type == DatasetType.QUALITY_CONSULTANCY:
-        return QualityConsultancyLoader
-    elif dataset_type == DatasetType.CORRECTNESS_JUDGE_PREFERENCES:
-        return CorrectnessJudgePreferencesLoader
-    elif dataset_type == DatasetType.TRUTHFUL:
-        return TruthfulLoader
-    elif dataset_type == DatasetType.GSM8K:
-        return GSM8KLoader
-    
-    raise Exception(f"Loader {dataset_type} not found")

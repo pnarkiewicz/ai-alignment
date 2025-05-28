@@ -24,6 +24,9 @@ class DatasetType(Enum):
     QUALITY_CONSULTANCY = (8, True)
     CORRECTNESS_JUDGE_PREFERENCES = (9, True)
     EXTERNAL_HUGGINGFACE = (10, False)
+    TRUTHFUL = (11, True)
+    KHUN_POKER = (12, True)  # TODO: not implemented yet
+    GSM8K = (13, True)
 
     def __init__(self, idx: int, is_instantiable: bool):
         self.id = idx
