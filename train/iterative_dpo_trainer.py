@@ -43,6 +43,7 @@ class IterativeDirectPreferenceTrainer:
     def __init__(self, config: TrainingConfig, smooth: bool = True, is_local: bool = False):
         self.logger = logger_utils.get_default_logger(__name__)
         self.is_local = is_local
+        self.multiturn = config.training_hyperparameters.supplemental["multiturn"]
         self.tokenizer = TrainUtils.get_tokenizer(config=config, is_local=is_local)
         self.model = TrainUtils.load_training_model(
             config=config,
@@ -83,6 +84,8 @@ class IterativeDirectPreferenceTrainer:
                 self.dataset.merge(other)
 
         self.config = config
+        self.increase_rounds = config.training_hyperparameters.supplemental['increase_rounds']
+        self.rounds_counter = 1
 
     def convert_dataset(self, raw_datasets: list[RawDataset]) -> Dataset:
         """Converts a dataset (abstraction used in this codebase) into a Dataset object (abstraction
@@ -104,10 +107,11 @@ class IterativeDirectPreferenceTrainer:
         self.model.train()
 
     def train(self, epoch_size: int = 128):
-        self.evaluate(epoch=0, epoch_size=epoch_size)
         for epoch in range(self.config.training_hyperparameters.steps):
             self.step(epoch=epoch, epoch_size=epoch_size)
-            # self.evaluate(epoch=epoch, epoch_size=epoch_size)
+            if epoch % 25 == 0:
+                self.rounds_counter += 1
+                self.rounds_counter = max(self.rounds_counter, 5)
 
     def step(self, epoch: int, epoch_size: int):
         output_suffix = f"/checkpoint-{epoch}" if epoch < self.config.training_hyperparameters.steps - 1 else ""
@@ -270,8 +274,9 @@ class IterativeDirectPreferenceTrainer:
             debate_identifier=debate_identifier,
         )
 
-        num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
-        # num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 2))
+        # num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
+        num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 3))
+        # num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", self.rounds_counter))
 
         original_debater_a = Debater(
             name=constants.DEFAULT_DEBATER_A_NAME,
@@ -286,33 +291,10 @@ class IterativeDirectPreferenceTrainer:
             quotes_require_validation=True,
         )
 
-        if evaluate:
-            model_b = llm_class(
-                alias=IterativeDirectPreferenceTrainer.DEFAULT_DEBATER_ALIAS,
-                file_path=None,
-                is_debater=True,
-            )
-
-            model_b.model = TrainUtils.load_training_model(
-                config=self.config,
-                requires_value_head=False,
-                load_as_peft_model=bool(
-                    self.config.training_hyperparameters.supplemental.get("force_sft_as_reference", False)
-                ),
-            )
-            model_b.tokenizer = self.tokenizer
-            model_b.generation_config = internal_model.create_default_generation_config(
-                is_debater=True, generation_params=GenerationParams()
-            )
-            model_b.instantiated_model = True
-            model_b.is_debater = True
-        else:
-            model_b = internal_model
-
         original_debater_b = Debater(
             name=constants.DEFAULT_DEBATER_B_NAME,
             prompt=prompt_b,
-            model=model_b,
+            model=internal_model,
             num_speeches=num_speeches,
             speech_format=self.config.speech_structure[0].debater_format.get_speech_format(
                 name=constants.DEFAULT_DEBATER_B_NAME,
@@ -333,6 +315,7 @@ class IterativeDirectPreferenceTrainer:
                 flipped=False,
             ),
             num_speeches=num_speeches,
+            multiturn=self.multiturn,
         )
 
         non_random_judge = Judge(
@@ -346,26 +329,8 @@ class IterativeDirectPreferenceTrainer:
                 flipped=False,
             ),
             num_speeches=num_speeches,
+            multiturn=self.multiturn,
         )
-
-        if evaluate:
-            non_random_judge.model.evaluate = True
-            debate_round = DebateRound(
-                first_debater=original_debater_a,
-                second_debater=original_debater_b,
-                judge=non_random_judge,
-                metadata=[question_metadata],
-            )
-            summary = debate_round()
-            non_random_judge.model.evaluate = False
-            summary = summary[0]
-            if DEBUG:
-                print("Speeches:")
-                print("A ", summary.transcript.speeches[0].content)
-                print("B ", summary.transcript.speeches[1].content)
-
-            transcript_json = non_random_judge.transcripts[0].json_value()
-            return [transcript_json["speeches"][-1]["supplemental"]["probabilistic_decision"]["Debater_A"]]
 
         debater_a = BestOfNDebater(
             debater=original_debater_a,
@@ -377,6 +342,7 @@ class IterativeDirectPreferenceTrainer:
                 maxmin=False,
             ),
             background_text=background_text,
+            multiturn=self.multiturn,
         )
 
         debater_b = BestOfNDebater(
@@ -389,6 +355,7 @@ class IterativeDirectPreferenceTrainer:
                 maxmin=False,
             ),
             background_text=background_text,
+            multiturn=self.multiturn,
         )
 
         debate_round = DebateRound(
@@ -397,9 +364,7 @@ class IterativeDirectPreferenceTrainer:
             judge=random_judge,
             metadata=[question_metadata],
         )
-
-        summary = debate_round()
-        summary = summary[0]
+        summary = debate_round()[0]
         if DEBUG:
             print("Speeches:")
             for i in range(len(summary.transcript.speeches)):
@@ -407,6 +372,5 @@ class IterativeDirectPreferenceTrainer:
                 print(f"{speaker} ", summary.transcript.speeches[i].content)
 
         transcript_json = random_judge.transcripts[0].json_value()
-        if evaluate:
-            breakpoint()
+        
         return JudgePreferencesLoader.process_row(transcript_json)

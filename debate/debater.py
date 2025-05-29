@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import copy
 from typing import Optional
 
@@ -122,6 +123,7 @@ class BestOfNDebater(Debater):
         judge: Judge,
         best_of_n_config: BestOfNConfig,
         background_text: str,
+        multiturn: bool = False
     ):
         super().__init__(
             name=debater.name,
@@ -135,6 +137,7 @@ class BestOfNDebater(Debater):
         self.judge = judge
         self.config = best_of_n_config
         self.background_text = background_text
+        self.multiturn = multiturn
 
     def __call__(self):
         # just doing round 1 for now and unbatched inputs
@@ -170,6 +173,7 @@ class BestOfNDebater(Debater):
             opposing_debater_responses = [None]
             opposing_speeches = [None]
 
+        this_speeches, opponent_speeches = self.extract_speeches()
         judge_inputs = []
         for speech in speeches:
             for opposing_speech in opposing_speeches:
@@ -178,6 +182,18 @@ class BestOfNDebater(Debater):
                     prompt=self.judge.transcripts[0].prompt,
                     speech_format=self.judge.speech_format,
                 )
+
+                if self.multiturn:
+                    for this_speech, opponent_speech in zip(this_speeches, opponent_speeches):
+                        if self.name == constants.DEFAULT_DEBATER_A_NAME:
+                            judge_transcript.add_speech(speaker=self.name, content=this_speech)
+                            if opposing_speech:
+                                judge_transcript.add_speech(speaker=self.opposing_debater.name, content=opponent_speech)
+                        else:
+                            if opposing_speech:
+                                judge_transcript.add_speech(speaker=self.opposing_debater.name, content=opponent_speech)
+                            judge_transcript.add_speech(speaker=self.name, content=this_speech)
+
                 if self.name == constants.DEFAULT_DEBATER_A_NAME:
                     judge_transcript.add_speech(speaker=self.name, content=speech)
                     if opposing_speech:
@@ -239,6 +255,24 @@ class BestOfNDebater(Debater):
             best_of_n_config=self.config,
             background_text=self.background_text,
         )
+    
+    def extract_speeches(self):
+        a_speech_pre = re.findall(
+            rf"This is what you, {self.name}, said during your previous speech.\n\n<br>\n\n\n\n(.*?)(\n\n<br>\n\nThis is what your opponent, {self.opposing_debater.name}, said during their speech.|\n\nNow it is your turn as {self.name})",
+            self.transcripts[0].to_model_input()[-1].content,
+            flags=re.DOTALL,
+        )
+
+        b_speech_pre = re.findall(
+            rf"This is what your opponent, {self.opposing_debater.name}, said during their speech.\n\n<br>\n\n\n\n(.*?)(\n\n<br>\n\nThis is what you, {self.name}, said during your previous speech.|\n\nNow it is your turn as {self.name})",
+            self.transcripts[0].to_model_input()[-1].content,
+            flags=re.DOTALL,
+        )
+
+        a_speeches = [elem[0] for elem in a_speech_pre]
+        b_speeches = [elem[0] for elem in b_speech_pre]
+
+        return a_speeches, b_speeches
 
 
 class HumanDebater(Debater):

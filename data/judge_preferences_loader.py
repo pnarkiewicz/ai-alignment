@@ -54,14 +54,14 @@ class JudgePreferencesDataset(RawDataset):
         for key in filter(lambda x: x in other.data, self.data):
             self.data[key] += other.data[key]
 
-    def __convert_batch_to_rows(self, train_data: list[tuple[str, str, str, float]]):
+    def __convert_batch_to_rows(self, train_data: list[tuple[str, str, str, float]] | list[list[tuple[str, str, str, float]]]):
         return [
             JudgePreferenceDataRow(prompt=instruction, chosen=chosen, rejected=rejected, preference=preference)
             for instruction, chosen, rejected, preference in train_data
         ]
 
 
-class JudgePreferencesLoader(RawDataLoader):
+class  JudgePreferencesLoader(RawDataLoader):
     MIN_GAP = 0.00
 
     @classmethod
