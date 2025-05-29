@@ -298,6 +298,9 @@ class TrainUtils:
                 alias=DEFAULT_JUDGE_ALIAS,
                 is_debater=False,
             )
+        
+        if judge_type == "llm_model":
+            return None
 
         if is_local:
             return RandomModel(alias=DEFAULT_JUDGE_ALIAS, is_debater=False)
