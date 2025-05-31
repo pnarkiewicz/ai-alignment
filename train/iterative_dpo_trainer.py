@@ -47,6 +47,7 @@ class IterativeDirectPreferenceTrainer:
         self.eval_step = 0
         self.logger = logger_utils.get_default_logger(__name__)
         self.is_local = is_local
+        self.multiturn = config.training_hyperparameters.supplemental["multiturn"]
         self.tokenizer = TrainUtils.get_tokenizer(config=config, is_local=is_local)
         self.model = TrainUtils.load_training_model(
             config=config,
@@ -87,6 +88,8 @@ class IterativeDirectPreferenceTrainer:
                 self.dataset.merge(other)
 
         self.config = config
+        self.increase_rounds = config.training_hyperparameters.supplemental['increase_rounds']
+        self.rounds_counter = 1
 
     def convert_dataset(self, raw_datasets: list[RawDataset]) -> Dataset:
         """Converts a dataset (abstraction used in this codebase) into a Dataset object (abstraction
@@ -304,7 +307,8 @@ class IterativeDirectPreferenceTrainer:
             debate_identifier=debate_identifier,
         )
 
-        num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
+        # num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
+        num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 3))
 
         original_debater_a = Debater(
             name=constants.DEFAULT_DEBATER_A_NAME,
@@ -393,6 +397,7 @@ class IterativeDirectPreferenceTrainer:
                 maxmin=False,
             ),
             background_text=background_text,
+            multiturn=self.multiturn,
         )
 
         debater_b = BestOfNDebater(
@@ -405,6 +410,7 @@ class IterativeDirectPreferenceTrainer:
                 maxmin=False,
             ),
             background_text=background_text,
+            multiturn=self.multiturn,
         )
 
         debate_round = DebateRound(
@@ -413,17 +419,12 @@ class IterativeDirectPreferenceTrainer:
             judge=random_judge,
             metadata=[question_metadata],
         )
-
-        summary = debate_round()
-        summary = summary[0]
-        # if DEBUG:
-        print("Speeches:")
-        print("A ", summary.transcript.speeches[0].content)
-        print("B ", summary.transcript.speeches[1].content)
+        summary = debate_round()[0]
+        if DEBUG:
+            print("Speeches:")
+            print("A ", summary.transcript.speeches[0].content)
+            print("B ", summary.transcript.speeches[1].content)
 
         transcript_json = random_judge.transcripts[0].json_value()
-        # if evaluate:
-        #     breakpoint()
         to_return = JudgePreferencesLoader.process_row(transcript_json)
-        # breakpoint()
         return to_return

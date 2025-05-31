@@ -16,6 +16,7 @@ class ArbitraryAttributeModel(Model):
         alias: str,
         is_debater: bool = False,
         feature: str | None = None,
+        multiturn: bool = False,
         **kwargs,
     ):
         """
@@ -33,6 +34,8 @@ class ArbitraryAttributeModel(Model):
         self.feature = feature or "quote"  # TODO: change
         self.evaluate = False
         self.train_step = 0
+        self.features = ["to", "you", "bear", "dog"]
+        self.multiturn = multiturn
 
     def predict(
         self,
@@ -64,29 +67,49 @@ class ArbitraryAttributeModel(Model):
         Raises:
             Exception: Raises Exception if num_return_sequences > 1 and len(inputs) > 1
         """
-
         def score_speeches(
-            model_inputs: list[ModelInput],
+            model_inputs: list[ModelInput]
         ) -> tuple[str, tuple[float, float]]:
             speeches = [speech for speech in filter(lambda x: x.role == RoleType.USER, model_inputs)]
+            if self.multiturn:
+                a_speech_pre = re.findall(
+                    r"This is what Debater_A said during their speech.\n\n(.*?)(\n\nThis is what Debater_B said during their speech.|\n\nNow it is the time for a decision)",
+                    speeches[-1].content,
+                    flags=re.DOTALL,
+                )
+                a_speech = [elem[0] for elem in a_speech_pre]
+                a_score = sum([a.count(f) / len(a.split(" ")) for a, f in zip(a_speech, self.features)])
 
-            a_speech_pre = re.search(
-                "This is what Debater_A said during their speech.(.*)This is what Debater_B said during their speech",
-                speeches[-1].content,
-                flags=re.DOTALL,
-            )
+                b_speech_pre = re.findall(
+                    r"This is what Debater_B said during their speech.\n\n(.*?)(\n\nThis is what Debater_A said during their speech.|\n\nNow it is the time for a decision)",
+                    speeches[-1].content,
+                    flags=re.DOTALL,
+                )
 
-            a_speech = a_speech_pre.group(1).strip()
-            b_speech_pre = re.search(
-                "This is what Debater_B said during their speech.(.*)Now it is the time for a decision",
-                speeches[-1].content,
-                flags=re.DOTALL,
-            )
+                b_speech = [elem[0] for elem in b_speech_pre]
+                b_score = sum([b.count(f) / len(b.split(" ")) for b, f in zip(b_speech, self.features)])
+                length = sum([len(elem.split(" ")) for elem in a_speech]) + sum([len(elem.split(" ")) for elem in b_speech])            
+                
+            else:
+                a_speech_pre = re.search(
+                    "This is what Debater_A said during their speech.(.*?)(This is what Debater_B said during their speech.|Now it is the time for a decision)",
+                    speeches[-1].content,
+                    flags=re.DOTALL,
+                )
 
-            b_speech = b_speech_pre.group(1).strip()
+                a_speech = a_speech_pre.group(1).strip()
+                b_speech_pre = re.search(
+                    "This is what Debater_B said during their speech.(.*)(This is what Debater_A said during their speech|Now it is the time for a decision)",
+                    speeches[-1].content,
+                    flags=re.DOTALL,
+                )
 
-            a_score = a_speech.count(self.feature)
-            b_score = b_speech.count(self.feature)
+                b_speech = b_speech_pre.group(1).strip()
+
+                a_score = a_speech.count(self.feature)
+                b_score = b_speech.count(self.feature)
+                length = len(a_speech) + len(b_speech)
+
 
             if not self.evaluate:
                 wandb.log({"feature_count": a_score + b_score}, step=self.train_step)
