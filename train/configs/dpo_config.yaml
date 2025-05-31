@@ -54,25 +54,25 @@ Local Train - Truthful:
         per_device_train_batch_size: 1
         gradient_accumulation_steps: 1
         optim: adamw_torch # (no bits and bytes locally)
-        learning_rate: 2e-4
-        max_grad_norm: 0.1
+        learning_rate: 3e-4
+        max_grad_norm: 0.05
         warmup_ratio: 0.03
         lr_scheduler_type: constant
         peft_type: lora
         target_module: all
-        lora_rank: 512
+        lora_rank: 256
         opening_speeches_only: True
         supplemental:
-            epoch_size: 4   # num examples used per step
+            epoch_size: 8 #16 #32   # num examples used per step
             save_steps: 4
             reward_type: prob
             loss_type: bon
             multiplier: 7
-            judge_type: arbitrary_attribute
-            judge_feature: "l"
+            judge_type: hf_wrapper
+            judge_model: "/net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-1B-Instruct"
     logging_and_saving_config:
         logging_steps: 5
-        output_dir: checkpoints/path/to/save/model
+        output_dir: checkpoints/test
     dataset:
         dataset_type: truthful
         split_type: train

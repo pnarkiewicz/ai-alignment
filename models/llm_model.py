@@ -183,12 +183,13 @@ class LLModel(Model):
 
     @classmethod
     def get_bnb_config(cls) -> BitsAndBytesConfig:
-        return BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16,
-        )
+        return None
+        # return BitsAndBytesConfig(
+        #     load_in_4bit=True,
+        #     bnb_4bit_use_double_quant=True,
+        #     bnb_4bit_quant_type="nf4",
+        #     bnb_4bit_compute_dtype=torch.bfloat16,
+        # )
 
     @classmethod
     def instantiate_hf_model(
@@ -203,6 +204,7 @@ class LLModel(Model):
         device_map = {"": local_rank}
 
         device = get_device()
+        quantize = False
         if not torch.cuda.is_available():
             quantize = False
             print("CUDA not available, disabling quantization")
@@ -211,14 +213,14 @@ class LLModel(Model):
 
         model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=peft_base_model or file_path,
-            device_map=device_map,
+            device_map="auto",
             trust_remote_code=True,
             use_flash_attention_2=HAVE_FLASH,
             use_cache=use_cache,
             token=os.getenv("META_ACCESS_TOKEN") if requires_token else None,
             quantization_config=LLModel.get_bnb_config() if quantize else None,
             torch_dtype=None if quantize else torch.bfloat16,
-        ).to(device)
+        )#.to(device)
 
         if peft_base_model:
             model = PeftModel.from_pretrained(
