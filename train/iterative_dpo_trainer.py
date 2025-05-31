@@ -295,7 +295,6 @@ class IterativeDirectPreferenceTrainer:
                 flipped=False,
             ),
             num_speeches=num_speeches,
-            multiturn=self.multiturn,
         )
 
         non_random_judge = Judge(
@@ -309,7 +308,6 @@ class IterativeDirectPreferenceTrainer:
                 flipped=False,
             ),
             num_speeches=num_speeches,
-            multiturn=self.multiturn,
         )
 
         debater_a = BestOfNDebater(

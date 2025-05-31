@@ -291,6 +291,7 @@ class TrainUtils:
                 alias=DEFAULT_JUDGE_ALIAS,
                 is_debater=False,
                 feature=supplemental.get("feature", "l"),
+                multiturn=supplemental.get("multiturn", False)
             )
 
         if judge_type == "deterministic":  # Currently, DEFAULT_DEBATER_A_NAME is hardcoded as the winner
