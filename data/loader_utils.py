@@ -99,6 +99,9 @@ class TruthfulDataset(RawDataset):
                 positions=(
                     correct_answer,
                     incorrect_answer,
+                ) if first_correct else (
+                    incorrect_answer,
+                    correct_answer
                 ),
                 story_title=entry["Question"],
                 debate_id=entry["Question"],

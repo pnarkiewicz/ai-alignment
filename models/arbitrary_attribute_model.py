@@ -32,6 +32,7 @@ class ArbitraryAttributeModel(Model):
             raise Exception("ArbitraryAttributeModel only supports judge mode")
         self.feature = feature or "quote"  # TODO: change
         self.evaluate = False
+        self.train_step = 0
 
     def predict(
         self,
@@ -88,9 +89,12 @@ class ArbitraryAttributeModel(Model):
             b_score = b_speech.count(self.feature)
 
             if not self.evaluate:
-                wandb.log({"feature_count": a_score + b_score})
-                wandb.log({"generated_length": len(a_speech) + len(b_speech)})
-                wandb.log({"feature_frac": (a_score + b_score + 1e-5) / (len(a_speech) + len(b_speech) + 1e-5)})
+                wandb.log({"feature_count": a_score + b_score}, step=self.train_step)
+                wandb.log({"generated_length": len(a_speech) + len(b_speech)}, step=self.train_step)
+                wandb.log({"feature_frac": (a_score + b_score + 1e-5) / (len(a_speech) + len(b_speech) + 1e-5)}, step=self.train_step)
+                wandb.log({f"A score {self.evaluate=}": a_score}, step=self.train_step)
+                wandb.log({f"B score {self.evaluate=}": b_score}, step=self.train_step)
+                self.train_step += 1
 
             random_val = random.random()
             epsilon = 1e-2
