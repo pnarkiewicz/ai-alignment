@@ -47,7 +47,7 @@ class IterativeDirectPreferenceTrainer:
         self.eval_step = 0
         self.logger = logger_utils.get_default_logger(__name__)
         self.is_local = is_local
-        self.multiturn = config.training_hyperparameters.supplemental["multiturn"]
+        self.multiturn = config.training_hyperparameters.supplemental.get("multiturn", False)
         self.tokenizer = TrainUtils.get_tokenizer(config=config, is_local=is_local)
         self.model = TrainUtils.load_training_model(
             config=config,
@@ -88,7 +88,7 @@ class IterativeDirectPreferenceTrainer:
                 self.dataset.merge(other)
 
         self.config = config
-        self.increase_rounds = config.training_hyperparameters.supplemental['increase_rounds']
+        self.increase_rounds = config.training_hyperparameters.supplemental.get('increase_rounds', False)
         self.rounds_counter = 1
 
     def convert_dataset(self, raw_datasets: list[RawDataset]) -> Dataset:

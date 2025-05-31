@@ -15,8 +15,7 @@ class HFWrapperJudge(Model):
         self,
         alias: str,
         is_debater: bool = False,
-        model_name: str = "meta-llama/Llama-3.2-3B-Instruct",
-        **kwargs,
+        judge_model: str = "meta-llama/Llama-3.2-3B-Instruct",
     ):
         """
         Wraps a LLaMA model and uses log-probabilities to pick a winner between two completions.
@@ -32,12 +31,12 @@ class HFWrapperJudge(Model):
         if is_debater:
             raise Exception("ArbitraryAttributeModel only supports judge mode")
 
-        self.model_name = model_name
+        self.model_name = judge_model
         global GLOBAL_MODEL, GLOBAL_TOKENIZER
 
         if GLOBAL_MODEL is None or GLOBAL_TOKENIZER is None:
-            GLOBAL_TOKENIZER = AutoTokenizer.from_pretrained(model_name)
-            model = AutoModelForCausalLM.from_pretrained(model_name)
+            GLOBAL_TOKENIZER = AutoTokenizer.from_pretrained(judge_model)
+            model = AutoModelForCausalLM.from_pretrained(judge_model)
             model.eval()
             if torch.cuda.is_available():
                 model.cuda()
@@ -46,54 +45,30 @@ class HFWrapperJudge(Model):
         self.tokenizer = GLOBAL_TOKENIZER
         self.model = GLOBAL_MODEL
 
-    # def _get_log_prob(self, prompt: str, continuation: str) -> float:
-    #     input_text = prompt + continuation
-    #     inputs = self.tokenizer(input_text, return_tensors="pt")
-    #     target_ids = self.tokenizer(continuation, return_tensors="pt").input_ids
-
-    #     if torch.cuda.is_available():
-    #         inputs = {k: v.cuda() for k, v in inputs.items()}
-    #         target_ids = target_ids.cuda()
-
-    #     with torch.no_grad():
-    #         outputs = self.model(**inputs, labels=inputs["input_ids"])
-    #         logits = outputs.logits
-
-    #     # Only consider log probs for the continuation portion
-    #     continuation_start = inputs["input_ids"].shape[1] - target_ids.shape[1]
-    #     log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
-
-    #     selected = torch.gather(
-    #         log_probs[:, continuation_start - 1 : -1, :],
-    #         2,
-    #         target_ids.unsqueeze(-1),
-    #     ).squeeze(-1)
-
-    #     return selected.sum().item()
     def _get_log_prob(self, prompt: str, continuation: str) -> float:
         input_text = prompt + continuation
-        input_ids = self.tokenizer.encode(input_text, return_tensors="pt")
-        prompt_ids = self.tokenizer.encode(prompt, return_tensors="pt")
+        inputs = self.tokenizer(input_text, return_tensors="pt")
+        target_ids = self.tokenizer(continuation, return_tensors="pt").input_ids
 
         if torch.cuda.is_available():
-            input_ids = input_ids.cuda()
-            prompt_ids = prompt_ids.cuda()
+            inputs = {k: v.cuda() for k, v in inputs.items()}
+            target_ids = target_ids.cuda()
 
         with torch.no_grad():
-            outputs = self.model(input_ids)
-            logits = outputs.logits  # shape: [1, seq_len, vocab_size]
-            log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
+            outputs = self.model(**inputs, labels=inputs["input_ids"])
+            logits = outputs.logits
 
-        # Get only the continuation part
-        continuation_start = prompt_ids.shape[1]
-        continuation_ids = input_ids[0, continuation_start:]
+        # Only consider log probs for the continuation portion
+        continuation_start = inputs["input_ids"].shape[1] - target_ids.shape[1]
+        log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
 
-        # Select log probs of continuation tokens
-        selected_log_probs = log_probs[0, continuation_start - 1 : -1, :]
-        target_log_probs = selected_log_probs.gather(1, continuation_ids.unsqueeze(-1)).squeeze(-1)
+        selected = torch.gather(
+            log_probs[:, continuation_start - 1 : -1, :],
+            2,
+            target_ids.unsqueeze(-1),
+        ).squeeze(-1)
 
-        return target_log_probs.sum().item()
-
+        return selected.sum().item()
 
     def predict(
         self,
@@ -145,5 +120,5 @@ class HFWrapperJudge(Model):
         return HFWrapperJudge(
             alias=alias,
             is_debater=is_debater if is_debater is not None else False,
-            model_name=self.model_name,
+            judge_model=self.model_name,
         )

@@ -291,7 +291,7 @@ class TrainUtils:
             return HFWrapperJudge(
                 alias=DEFAULT_JUDGE_ALIAS,
                 is_debater=False,
-                feature=supplemental.get("judge_model"),
+                judge_model=supplemental.get("judge_model"),
             )
         elif judge_type == "arbitrary_attribute":
             return ArbitraryAttributeModel(
