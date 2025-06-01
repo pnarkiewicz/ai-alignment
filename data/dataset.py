@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
@@ -124,14 +124,17 @@ class RawDataset(ABC):
     def __init__(self, dataset_type: DatasetType):
         self.dataset_type = dataset_type
 
+    @abstractmethod
     def get_data(self, split: SplitType = SplitType.TRAIN) -> list[tuple[str, Any]]:
         """Fetches all the data for a given split of the data"""
         pass
 
+    @abstractmethod
     def get_batch(self, split: SplitType = SplitType.TRAIN, batch_size: int = 1) -> list[tuple[str, Any]]:
         """Gets a subset of the data"""
         pass
 
+    @abstractmethod
     def get_example(self, split: SplitType = SplitType.TRAIN, idx: int = 0) -> DataRow:
         """Returns an individual row at the specified index"""
         pass
@@ -140,20 +143,17 @@ class RawDataset(ABC):
         """Gets the name of the dataset"""
         return self.dataset_type
 
-    def merge(self, other):
-        """Combines the data from two datasets"""
-        pass
-
 
 class RawDataLoader(ABC):
     @classmethod
+    @abstractmethod
     def load(
         cls,
-        full_dataset_filepath: Optional[str] = None,
-        train_filepath: Optional[str] = None,
-        validation_filepath: Optional[str] = None,
-        test_filepath: Optional[str] = None,
-        supplemental_file_paths: Optional[str] = None,
+        full_dataset_filepath: str | None = None,
+        train_filepath: str | None = None,
+        validation_filepath: str | None = None,
+        test_filepath: str | None = None,
+        supplemental_file_paths: str | None = None,
         combine_train_and_val: bool = False,
     ) -> RawDataset:
         """Constructs a dataset"""
