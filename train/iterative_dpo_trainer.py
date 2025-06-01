@@ -90,6 +90,8 @@ class IterativeDirectPreferenceTrainer:
         self.config = config
         self.increase_rounds = config.training_hyperparameters.supplemental.get('increase_rounds', False)
         self.rounds_counter = 1
+        self.first_true_step = 0
+        self.first_false_step = 0
 
     def convert_dataset(self, raw_datasets: list[RawDataset]) -> Dataset:
         """Converts a dataset (abstraction used in this codebase) into a Dataset object (abstraction
@@ -307,8 +309,8 @@ class IterativeDirectPreferenceTrainer:
             debate_identifier=debate_identifier,
         )
 
-        # num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
-        num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 3))
+        num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
+        # num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 3))
 
         original_debater_a = Debater(
             name=constants.DEFAULT_DEBATER_A_NAME,
@@ -382,7 +384,24 @@ class IterativeDirectPreferenceTrainer:
 
             debater = constants.DEFAULT_DEBATER_B_NAME if a_reference else constants.DEFAULT_DEBATER_A_NAME
             decision = transcript_json["speeches"][-1]["supplemental"]["probabilistic_decision"][debater]
-            wandb.log({"eval/preference": decision, "eval/step": self.eval_step})
+            correct_preference = decision if correct_index == 0 else 1 - decision
+            incorrect_preference = 1 - correct_preference
+
+            wandb.log(
+                {
+                    "eval/preference": decision, 
+                    "eval/true_debater": correct_preference, 
+                    "eval/false_debater": incorrect_preference,  
+                    "eval/step": self.eval_step
+                }
+            )
+            if correct_index == 0:
+                wandb.log({"eval_first_true/first_truthful": decision, "eval_first_true/second_false": 1 - decision, "eval_first_true/step": self.first_true_step})
+                self.first_true_step += 1
+            else:
+                wandb.log({"eval_first_false/first_false": decision, "eval_first_false/second_truthful": 1 - decision, "eval_first_false/step": self.first_false_step})
+                self.first_false_step += 1
+
             to_return = [decision]
             self.eval_step += 1
             return to_return

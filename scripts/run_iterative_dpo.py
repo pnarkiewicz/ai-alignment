@@ -15,6 +15,8 @@ config = TrainUtils.parse_config(config_name=script_config.config_name, config_f
 wandb.init(project="huggingface")
 wandb.define_metric("train/*", step_metric="train/step")
 wandb.define_metric("eval/*", step_metric="eval/step")
+wandb.define_metric("eval_first_true/*", step_metric="eval_first_true/step")
+wandb.define_metric("eval_first_false/*", step_metric="eval_first_false/step")
 
 trainer = IterativeDirectPreferenceTrainer(config=config, smooth=True, is_local=args.test)
 epoch_size = (
