@@ -48,6 +48,7 @@ class IterativeDirectPreferenceTrainer:
         self.logger = logger_utils.get_default_logger(__name__)
         self.is_local = is_local
         self.multiturn = config.training_hyperparameters.supplemental.get("multiturn", False)
+        self.self_play = config.training_hyperparameters.supplemental.get('self_play', True)
         self.tokenizer = TrainUtils.get_tokenizer(config=config, is_local=is_local)
         self.model = TrainUtils.load_training_model(
             config=config,
@@ -112,10 +113,10 @@ class IterativeDirectPreferenceTrainer:
         self.model.train()
 
     def train(self, epoch_size: int = 128):
-        self.evaluate(epoch=0, epoch_size=epoch_size)
+        self.evaluate(epoch=0, epoch_size=32)
         for epoch in range(self.config.training_hyperparameters.steps):
             self.step(epoch=epoch, epoch_size=epoch_size)
-            self.evaluate(epoch=epoch, epoch_size=epoch_size)
+            self.evaluate(epoch=0, epoch_size=32)
 
     def step(self, epoch: int, epoch_size: int):
         output_suffix = f"/checkpoint-{epoch}" if epoch < self.config.training_hyperparameters.steps - 1 else ""
@@ -250,8 +251,9 @@ class IterativeDirectPreferenceTrainer:
             swap = SWAP
             SWAP = not SWAP
         
-        a_reference = evaluate and (not swap)
-        b_reference = evaluate and (swap)
+        use_reference = not self.self_play or evaluate
+        a_reference = not swap and use_reference
+        b_reference = swap and use_reference
 
 
         topic = example.question
@@ -310,7 +312,6 @@ class IterativeDirectPreferenceTrainer:
         )
 
         num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
-        # num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 3))
 
         original_debater_a = Debater(
             name=constants.DEFAULT_DEBATER_A_NAME,
