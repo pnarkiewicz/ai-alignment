@@ -48,6 +48,7 @@ class IterativeDirectPreferenceTrainer:
         self.logger = logger_utils.get_default_logger(__name__)
         self.is_local = is_local
         self.multiturn = config.training_hyperparameters.supplemental.get("multiturn", False)
+        self.max_num_rounds = config.training_hyperparameters.supplemental.get("max_num_rounds", 1)
         self.self_play = config.training_hyperparameters.supplemental.get('self_play', True)
         self.tokenizer = TrainUtils.get_tokenizer(config=config, is_local=is_local)
         self.model = TrainUtils.load_training_model(
@@ -311,7 +312,8 @@ class IterativeDirectPreferenceTrainer:
             debate_identifier=debate_identifier,
         )
 
-        num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
+        # num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
+        num_speeches = self.max_num_rounds
 
         original_debater_a = Debater(
             name=constants.DEFAULT_DEBATER_A_NAME,
