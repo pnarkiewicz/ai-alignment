@@ -32,6 +32,7 @@ Local Train - GSM8k:
             judge_feature: "l"
             increase_rounds: True
             multiturn: True
+            max_num_rounds: 3
     logging_and_saving_config:
         logging_steps: 5
         output_dir: checkpoints/path/to/save/model
