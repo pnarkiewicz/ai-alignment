@@ -93,7 +93,9 @@ class IterativeDirectPreferenceTrainer:
         self.increase_rounds = config.training_hyperparameters.supplemental.get('increase_rounds', False)
         self.rounds_counter = 1
         self.first_true_step = 0
+        self.second_false_step = 0
         self.first_false_step = 0
+        self.second_true_step = 0
 
     def convert_dataset(self, raw_datasets: list[RawDataset]) -> Dataset:
         """Converts a dataset (abstraction used in this codebase) into a Dataset object (abstraction
@@ -398,12 +400,18 @@ class IterativeDirectPreferenceTrainer:
                     "eval/step": self.eval_step
                 }
             )
-            if correct_index == 0:
-                wandb.log({"eval_first_true/first_truthful": decision, "eval_first_true/second_false": 1 - decision, "eval_first_true/step": self.first_true_step})
+            if correct_index == 0 and debater == constants.DEFAULT_DEBATER_A_NAME:
+                wandb.log({"eval_first_true/preference": decision, "eval_first_true/step": self.first_true_step})
                 self.first_true_step += 1
-            else:
-                wandb.log({"eval_first_false/first_false": decision, "eval_first_false/second_truthful": 1 - decision, "eval_first_false/step": self.first_false_step})
+            elif correct_index == 0 and debater == constants.DEFAULT_DEBATER_B_NAME:
+                wandb.log({"eval_second_false/preference": decision, "eval_second_false/step": self.second_false_step})
+                self.second_false_step += 1
+            elif correct_index == 1 and debater == constants.DEFAULT_DEBATER_A_NAME:
+                wandb.log({"eval_first_false/preference": decision, "eval_first_false/step": self.first_false_step})
                 self.first_false_step += 1
+            else:
+                wandb.log({"eval_second_true/preference": decision, "eval_second_true/step": self.second_true_step})
+                self.second_true_step += 1
 
             to_return = [decision]
             self.eval_step += 1
