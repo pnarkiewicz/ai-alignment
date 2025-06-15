@@ -23,18 +23,19 @@ Local Train - GSM8k:
         lora_rank: 512
         opening_speeches_only: True
         supplemental:
-            epoch_size: 16   # num examples used per step
+            epoch_size: 4   # num examples used per step
             save_steps: 4
             reward_type: prob
-            loss_type: bon-ipo
+            loss_type: bon
             multiplier: 7
             judge_type: hf_wrapper
             judge_model: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-3B-Instruct
+            increase_rounds: True
             multiturn: True
             max_num_rounds: 3
     logging_and_saving_config:
         logging_steps: 5
-        output_dir: checkpoints/test_gsm8k_ipo
+        output_dir: checkpoints/test_gsm8k
     dataset:
         dataset_type: gsm8k
         split_type: train
@@ -49,13 +50,13 @@ Local Train - Truthful:
         use_hardcoded_topics: False
         hardcoded_topic_config: null
     training_hyperparameters:
-        steps: 52
+        steps: 21
         num_train_epochs: 1
         per_device_train_batch_size: 1
         gradient_accumulation_steps: 1
         optim: adamw_torch # (no bits and bytes locally)
         learning_rate: 3e-5
-        max_grad_norm: 0.0003
+        max_grad_norm: 0.003
         warmup_ratio: 0.03
         lr_scheduler_type: constant
         peft_type: lora
@@ -63,18 +64,17 @@ Local Train - Truthful:
         lora_rank: 256
         opening_speeches_only: True
         supplemental:
-            epoch_size: 16
+            epoch_size: 32
             save_steps: 4
             reward_type: prob
-            loss_type: bon-ipo
+            loss_type: bon
             multiplier: 7
             judge_type: hf_wrapper
             judge_model: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-1B-Instruct
-            self_play: False
-            # multiturn: True
+            baseline: True
     logging_and_saving_config:
         logging_steps: 4
-        output_dir: checkpoints/ipo_single_reference
+        output_dir: checkpoints/exp0
     dataset:
         dataset_type: truthful
         split_type: train
