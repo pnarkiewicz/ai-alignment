@@ -15,6 +15,9 @@ from data.quote_relevance_loader import QuoteRelevanceLoader
 from data.scratchpad_quality_debates_loader import ScratchpadQualityDebatesLoader
 from utils import constants
 
+"""
+Most of the methods are taken from the QualityDataset class. Some might be not used.
+"""
 
 class TruthfulDataset(RawDataset):
     def __init__(
@@ -118,6 +121,84 @@ class TruthfulDataset(RawDataset):
             else:
                 self.data[SplitType.VAL].append(row)
         self.data[SplitType.TEST] = test_data
+
+    def __reorder(self, rows: list[DataRow]) -> list[DataRow]:
+        if len(rows) == 0:
+            return rows
+
+        random.shuffle(rows)
+        story_to_rows = {}
+        for row in rows:
+            if row.story_title not in story_to_rows:
+                story_to_rows[row.story_title] = []
+            story_to_rows[row.story_title].append(row)
+
+        final_order = []
+        max_index = max([len(story_to_rows[row.story_title]) for row in rows])
+        for index in range(max_index):
+            for story in filter(lambda x: len(story_to_rows[x]) > index, story_to_rows):
+                final_order.append(story_to_rows[story][index])
+        return final_order
+
+
+class TruthfulLoader(RawDataLoader):
+    @classmethod
+    def get_splits(
+        cls,
+        train_filepath: Optional[str] = None,
+        val_filepath: Optional[str] = None,
+        test_filepath: Optional[str] = None,
+    ) -> tuple[list[dict]]:
+        """Splits the data in train, val, and test sets"""
+        DEFAULT_FILE_PATH = os.environ[constants.SRC_ROOT] + "data/datasets/TruthfulQA"
+
+        dataset = load_dataset(DEFAULT_FILE_PATH)["train"]
+        # TODO: It would be better to split to files so they are separated
+        seed = 42
+        train_data, tmp = dataset.train_test_split(test_size=0.2, seed=seed, shuffle=True).values()
+        val_data, test_data = tmp.train_test_split(test_size=0.5, seed=seed, shuffle=True).values()
+        return train_data, val_data, test_data
+
+    @classmethod
+    def load(
+        cls,
+        train_filepath: Optional[str] = None,
+        val_filepath: Optional[str] = None,
+        test_filepath: Optional[str] = None,
+        allow_multiple_positions_per_question: bool = False,
+        deduplicate_with_quality_debates: bool = True,
+        supplemental_file_paths: Optional[dict[str, str]] = None,
+        flip_sides: bool = False,
+        shuffle_deterministically: bool = False,
+        **kwargs,
+    ) -> TruthfulDataset:
+        """Constructs a QualityDataset"""
+        train_split, val_split, test_split = TruthfulLoader.get_splits(
+            train_filepath=train_filepath, val_filepath=val_filepath, test_filepath=test_filepath
+        )
+
+        dedupe_datasets = None
+        if deduplicate_with_quality_debates:
+            quality_debates_filepath = (supplemental_file_paths or {}).get(
+                "quality_debates_file_path", QualityTranscriptsLoader.DEFAULT_FILE_PATH
+            )
+            quality_debates_dataset = QualityDebatesLoader.load(
+                full_dataset_filepath=quality_debates_filepath, deduplicate=True
+            )
+            quality_consultancy_dataset = QualityConsultancyLoader.load(
+                full_dataset_filepath=quality_debates_filepath, deduplicate=True
+            )
+            dedupe_datasets = [(quality_debates_dataset, True), (quality_consultancy_dataset, True)]
+
+        return TruthfulDataset(
+            train_data=train_split,
+            val_data=val_split,
+            test_data=test_split,
+            allow_multiple_positions_per_question=allow_multiple_positions_per_question,
+            dedupe_dataset=dedupe_datasets,
+            flip_sides=flip_sides,
+            shuffle_deterministically=shuffle_deterministically,
+        )
 
     def __reorder(self, rows: list[DataRow]) -> list[DataRow]:
         if len(rows) == 0:
