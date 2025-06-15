@@ -314,7 +314,6 @@ class IterativeDirectPreferenceTrainer:
             debate_identifier=debate_identifier,
         )
 
-        # num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
         num_speeches = self.max_num_rounds
 
         original_debater_a = Debater(
