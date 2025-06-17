@@ -82,7 +82,7 @@ Local Train:
     model_name: checkpoints/v0-llama2-100k # download from https://huggingface.co/delphi-suite/v0-llama2-100k 
     target: debater
     llm_type: llama
-    max_length: 4096
+    max_length: 2048
     training_hyperparameters:
         steps: 20
         num_train_epochs: 1
@@ -95,8 +95,9 @@ Local Train:
         lr_scheduler_type: constant
         peft_type: lora
         target_module: all
-        lora_rank: 512
+        lora_rank: 64
         supplemental:
+            max_new_tokens: 32
             epoch_size: 4   # num examples used per step
             save_steps: 4
             reward_type: prob

@@ -142,7 +142,7 @@ class LLModel(Model):
     ) -> GenerationConfig:
         """Creates a default generation config so that the model can generate text"""
         config_terms = {
-            "max_new_tokens": GENERATION_LEN if DEBUG else generation_params.max_new_tokens,
+            "max_new_tokens": generation_params.max_new_tokens,
             "num_return_sequences": 1,
             "output_scores": True,
             "return_dict_in_generate": True,
@@ -367,7 +367,7 @@ class LLModel(Model):
 
         def create_new_generation_config():
             config_to_use = copy.deepcopy(self.generation_config)
-            config_to_use.max_new_tokens = GENERATION_LEN if DEBUG else max_new_tokens
+            # config_to_use.max_new_tokens = max_new_tokens
             config_to_use.num_return_sequences = num_return_sequences
             return config_to_use
 

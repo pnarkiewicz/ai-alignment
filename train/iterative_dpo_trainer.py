@@ -47,6 +47,9 @@ class IterativeDirectPreferenceTrainer:
         self.eval_step = 0
         self.logger = logger_utils.get_default_logger(__name__)
         self.is_local = is_local
+        self.max_new_tokens = config.training_hyperparameters.supplemental.get(
+            "max_new_tokens", 300 if DEBUG else 2048
+        )
         self.multiturn = config.training_hyperparameters.supplemental.get("multiturn", False)
         self.max_num_rounds = config.training_hyperparameters.supplemental.get("max_num_rounds", 1)
         self.self_play = config.training_hyperparameters.supplemental.get('self_play', True)
@@ -218,11 +221,12 @@ class IterativeDirectPreferenceTrainer:
             alias=IterativeDirectPreferenceTrainer.DEFAULT_DEBATER_ALIAS,
             file_path=None,
             is_debater=True,
+            generation_params=GenerationParams(max_new_tokens=self.max_new_tokens)
         )
         internal_model.model = self.model
         internal_model.tokenizer = self.tokenizer
         internal_model.generation_config = internal_model.create_default_generation_config(
-            is_debater=True, generation_params=GenerationParams()
+            is_debater=True, generation_params=GenerationParams(max_new_tokens=self.max_new_tokens)
         )
         internal_model.instantiated_model = True
         internal_model.is_debater = True
@@ -233,6 +237,7 @@ class IterativeDirectPreferenceTrainer:
                 alias=IterativeDirectPreferenceTrainer.DEFAULT_DEBATER_ALIAS,
                 file_path=None,
                 is_debater=True,
+                generation_params=GenerationParams(max_new_tokens=self.max_new_tokens)
             )
             REFERENCE_MODEL.model = TrainUtils.load_training_model(
                 config=self.config,
@@ -243,7 +248,7 @@ class IterativeDirectPreferenceTrainer:
             )
             REFERENCE_MODEL.tokenizer = self.tokenizer
             REFERENCE_MODEL.generation_config = internal_model.create_default_generation_config(
-                is_debater=True, generation_params=GenerationParams()
+                is_debater=True, generation_params=GenerationParams(max_new_tokens=self.max_new_tokens)
             )
             REFERENCE_MODEL.instantiated_model = True
             REFERENCE_MODEL.is_debater = True
