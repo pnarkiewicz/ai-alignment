@@ -1,6 +1,19 @@
-#  NYU Debate Modeling Project
+# TPML project: Debates of LLMs
 
-TRL Online DPO Trainer: https://github.com/huggingface/trl/blob/main/trl/trainer/online_dpo_trainer.py
+This is a fork extending [nyu-debate-modeling](https://github.com/samuelarnesen/nyu-debate-modeling) project.
+
+
+## Simple local run for debugging purposes
+
+## Running training on athena cluster
+
+## Code structure
+
+
+
+# Notes, TODO: delete
+
+
 
 ## Local DPO train
 * Oparty na modelu: https://huggingface.co/delphi-suite/v0-llama2-100k
