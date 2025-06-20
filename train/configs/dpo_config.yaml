@@ -95,7 +95,7 @@ Local Train:
         lr_scheduler_type: constant
         peft_type: lora
         target_module: all
-        lora_rank: 64
+        lora_rank: 32
         supplemental:
             max_new_tokens: 32
             epoch_size: 4   # num examples used per step
@@ -105,6 +105,7 @@ Local Train:
             multiplier: 7
             judge_type: arbitrary_attribute
             judge_feature: "l"
+            evaluate: false
     logging_and_saving_config:
         logging_steps: 5
         output_dir: checkpoints/path/to/save/model

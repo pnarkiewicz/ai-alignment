@@ -53,6 +53,7 @@ class IterativeDirectPreferenceTrainer:
         self.multiturn = config.training_hyperparameters.supplemental.get("multiturn", False)
         self.max_num_rounds = config.training_hyperparameters.supplemental.get("max_num_rounds", 1)
         self.self_play = config.training_hyperparameters.supplemental.get('self_play', True)
+        self.run_evaluation = config.training_hyperparameters.supplemental.get('evaluate', True)
         self.tokenizer = TrainUtils.get_tokenizer(config=config, is_local=is_local)
         self.model = TrainUtils.load_training_model(
             config=config,
@@ -119,10 +120,12 @@ class IterativeDirectPreferenceTrainer:
         self.model.train()
 
     def train(self, epoch_size: int = 128):
-        self.evaluate(epoch=0, epoch_size=32)
+        if self.run_evaluation:
+            self.evaluate(epoch=0, epoch_size=32)
         for epoch in range(self.config.training_hyperparameters.steps):
             self.step(epoch=epoch, epoch_size=epoch_size)
-            self.evaluate(epoch=0, epoch_size=32)
+            if self.run_evaluation:
+                self.evaluate(epoch=0, epoch_size=32)
 
     def step(self, epoch: int, epoch_size: int):
         output_suffix = f"/checkpoint-{epoch}" if epoch < self.config.training_hyperparameters.steps - 1 else ""

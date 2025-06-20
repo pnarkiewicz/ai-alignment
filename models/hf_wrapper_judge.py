@@ -99,11 +99,9 @@ class HFWrapperJudge(Model):
 
             print("a = ", prob_a)
             if DEBUG:
-                wandb.log({ "train/step": self.train_step,
-                            "train/log_prob_a": log_prob_a,
-                            "train/log_prob_b": log_prob_b,
-                            "train/prob_a": prob_a,
-                            "train/prob_b": prob_b})
+                wandb.log({ "train_prob/step": self.train_step,
+                            "train_prob/prob_a": prob_a,
+                            "train_prob/prob_b": prob_b})
                 self.train_step += 1
 
             results.append(

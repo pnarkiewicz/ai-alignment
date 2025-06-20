@@ -19,6 +19,7 @@ wandb.define_metric("eval_first_true/*", step_metric="eval_first_true/step")
 wandb.define_metric("eval_first_false/*", step_metric="eval_first_false/step")
 wandb.define_metric("eval_second_true/*", step_metric="eval_second_true/step")
 wandb.define_metric("eval_second_false/*", step_metric="eval_second_false/step")
+wandb.define_metric("train_prob/*", step_metric="train_prob/step")
 
 trainer = IterativeDirectPreferenceTrainer(config=config, smooth=True, is_local=args.test)
 epoch_size = (
