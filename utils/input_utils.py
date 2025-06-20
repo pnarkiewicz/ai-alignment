@@ -9,6 +9,16 @@ import pandas as pd
 
 import utils.constants as constants
 
+def get_device():
+    import torch
+
+    if torch.cuda.is_available():
+        return "cuda"
+
+    if torch.backends.mps.is_available():
+        return "mps"
+
+    return "cpu"
 
 class InputType(Enum):
     TEXT_TRANSCRIPT = ("txt", os.environ[constants.INPUT_ROOT] + "/transcripts", lambda x: x)

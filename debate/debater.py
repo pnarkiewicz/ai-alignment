@@ -141,8 +141,6 @@ class BestOfNDebater(Debater):
 
     def __call__(self):
         # just doing round 1 for now and unbatched inputs
-        self.speech_format.tokens_per_speech = GENERATION_LEN if DEBUG else self.speech_format.tokens_per_speech
-
         model_responses = self.model.predict(
             inputs=[self.transcripts[0].to_model_input() for _ in range(self.config.n)],
             max_new_tokens=self.speech_format.tokens_per_speech,
