@@ -112,11 +112,16 @@ class ArbitraryAttributeModel(Model):
 
 
             if not self.evaluate:
-                wandb.log({"feature_count": a_score + b_score}, step=self.train_step)
-                wandb.log({"generated_length": len(a_speech) + len(b_speech)}, step=self.train_step)
-                wandb.log({"feature_frac": (a_score + b_score + 1e-5) / (len(a_speech) + len(b_speech) + 1e-5)}, step=self.train_step)
-                wandb.log({f"A score {self.evaluate=}": a_score}, step=self.train_step)
-                wandb.log({f"B score {self.evaluate=}": b_score}, step=self.train_step)
+                wandb.log(
+                    {
+                        "train/feature_count": a_score + b_score,
+                        "train/generated_length": length,
+                        "train/feature_frac": (a_score + b_score + 1e-5) / (length + 1e-5),
+                        f"train/A score {self.evaluate=}": a_score,
+                        f"train/B score {self.evaluate=}": b_score,
+                        "train/step": self.train_step,
+                    },
+                )
                 self.train_step += 1
 
             random_val = random.random()
