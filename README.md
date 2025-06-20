@@ -2,8 +2,35 @@
 
 This is a fork extending [nyu-debate-modeling](https://github.com/samuelarnesen/nyu-debate-modeling) project.
 
+## Project info
+
+## Novelty
+
 
 ## Simple local run for debugging purposes
+
+Inside the repository root directory, create `.env` file:
+``` txt
+SRC_ROOT=/path/to/repo/
+INPUT_ROOT=/path/to/repo/data/datasets/
+```
+
+Then execute the following commands to setup the environment.
+
+``` bash
+python3.11 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+mkdir checkpoints
+# ensure git lfs is installed
+git clone https://huggingface.co/delphi-suite/v0-llama2-100k checkpoints/v0-llama2-100k
+```
+
+Now, you are ready to run a simple debug training with:
+``` bash
+python scripts/run_iterative_dpo.py --config="Local Train"
+```
+
 
 ## Running training on athena cluster
 
