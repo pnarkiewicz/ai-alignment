@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import random
 import re
-from typing import Optional
 
 import utils.constants as constants
 import wandb
@@ -33,8 +32,9 @@ class ArbitraryAttributeModel(Model):
         if is_debater:
             raise Exception("ArbitraryAttributeModel only supports judge mode")
         self.feature = feature or "quote"  # TODO: change
-        self.features = ["to", "you", "bear", "dog"]
         self.evaluate = False
+        self.train_step = 0
+        self.features = ["to", "you", "bear", "dog"]
         self.multiturn = multiturn
 
     def predict(
@@ -111,13 +111,20 @@ class ArbitraryAttributeModel(Model):
                 length = len(a_speech) + len(b_speech)
 
 
-            wandb.log({"feature_count": a_score + b_score})
-            wandb.log({"generated_length": len(a_speech) + len(b_speech)})
-            wandb.log({"feature_frac": (a_score + b_score + 1e-5) / (len(a_speech) + len(b_speech) + 1e-5)})
+            if not self.evaluate:
+                wandb.log(
+                    {
+                        "train/feature_count": a_score + b_score,
+                        "train/generated_length": length,
+                        "train/feature_frac": (a_score + b_score + 1e-5) / (length + 1e-5),
+                        f"train/A score {self.evaluate=}": a_score,
+                        f"train/B score {self.evaluate=}": b_score,
+                        "train/step": self.train_step,
+                    },
+                )
+                self.train_step += 1
 
-            # b_score = 5  # TODO: change this
             random_val = random.random()
-
             epsilon = 1e-2
             rand1 = random.random() * epsilon
             rand2 = random.random() * epsilon
@@ -148,7 +155,8 @@ class ArbitraryAttributeModel(Model):
 
         if len(inputs) > 1 and num_return_sequences > 1:
             raise Exception(
-                f"Length of input ({len(inputs)}) and num_return_sequences ({num_return_sequences}) cannot both be greater than 1."
+                f"Length of input ({len(inputs)}) and num_return_sequences ({num_return_sequences}) cannot "
+                "both be greater than 1."
             )
 
         decisions = []
@@ -166,7 +174,7 @@ class ArbitraryAttributeModel(Model):
             )
         return decisions
 
-    def copy(self, alias: str, is_debater: Optional[bool] = None, **kwargs) -> RandomModel:
+    def copy(self, alias: str, is_debater: bool | None = None, **kwargs):
         """Generates a deepcopy of this model"""
         return ArbitraryAttributeModel(
             alias=alias,

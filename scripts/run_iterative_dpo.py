@@ -13,6 +13,13 @@ script_config = ScriptUtils.get_training_run_script_config(args, train_type=Trai
 config = TrainUtils.parse_config(config_name=script_config.config_name, config_filepath=script_config.config_filepath)
 
 wandb.init(project="huggingface")
+wandb.define_metric("train/*", step_metric="train/step")
+wandb.define_metric("eval/*", step_metric="eval/step")
+wandb.define_metric("eval_first_true/*", step_metric="eval_first_true/step")
+wandb.define_metric("eval_first_false/*", step_metric="eval_first_false/step")
+wandb.define_metric("eval_second_true/*", step_metric="eval_second_true/step")
+wandb.define_metric("eval_second_false/*", step_metric="eval_second_false/step")
+wandb.define_metric("train_prob/*", step_metric="train_prob/step")
 
 trainer = IterativeDirectPreferenceTrainer(config=config, smooth=True, is_local=args.test)
 epoch_size = (

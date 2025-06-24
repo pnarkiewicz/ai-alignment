@@ -4,6 +4,7 @@ from datasets import Dataset
 from transformers import TrainingArguments
 
 import utils.constants as constants
+import wandb
 from data import (
     JudgePreferencesDataset,
     JudgePreferencesLoader,
@@ -34,15 +35,25 @@ except ImportError:
     FLASH_ATTENTION_AVAILABLE = False
 
 
+REFERENCE_MODEL = None
+SWAP = False
+
 class IterativeDirectPreferenceTrainer:
     """Class for iteratively training a model using Direct Preference Optimization"""
 
     DEFAULT_DEBATER_ALIAS = "default-debater"
 
     def __init__(self, config: TrainingConfig, smooth: bool = True, is_local: bool = False):
+        self.eval_step = 0
         self.logger = logger_utils.get_default_logger(__name__)
         self.is_local = is_local
-        self.multiturn = config.training_hyperparameters.supplemental["multiturn"]
+        self.max_new_tokens = config.training_hyperparameters.supplemental.get(
+            "max_new_tokens", 300 if DEBUG else 2048
+        )
+        self.multiturn = config.training_hyperparameters.supplemental.get("multiturn", False)
+        self.max_num_rounds = config.training_hyperparameters.supplemental.get("max_num_rounds", 1)
+        self.self_play = config.training_hyperparameters.supplemental.get('self_play', True)
+        self.run_evaluation = config.training_hyperparameters.supplemental.get('evaluate', True)
         self.tokenizer = TrainUtils.get_tokenizer(config=config, is_local=is_local)
         self.model = TrainUtils.load_training_model(
             config=config,
@@ -50,6 +61,7 @@ class IterativeDirectPreferenceTrainer:
             requires_value_head=False,
             load_as_peft_model=bool(config.training_hyperparameters.supplemental.get("force_sft_as_reference", False)),
         )
+        self.config = config
 
         self.judge_model = TrainUtils.load_judge_model(config, is_local=is_local)
         self.random_judge_model = RandomModel(alias="default-random-judge", is_debater=False)
@@ -82,8 +94,12 @@ class IterativeDirectPreferenceTrainer:
                 self.dataset.merge(other)
 
         self.config = config
-        self.increase_rounds = config.training_hyperparameters.supplemental['increase_rounds']
+        self.increase_rounds = config.training_hyperparameters.supplemental.get('increase_rounds', False)
         self.rounds_counter = 1
+        self.first_true_step = 0
+        self.second_false_step = 0
+        self.first_false_step = 0
+        self.second_true_step = 0
 
     def convert_dataset(self, raw_datasets: list[RawDataset]) -> Dataset:
         """Converts a dataset (abstraction used in this codebase) into a Dataset object (abstraction
@@ -94,9 +110,22 @@ class IterativeDirectPreferenceTrainer:
         df = pd.DataFrame(data=rows)
         return Dataset.from_pandas(df).shuffle()
 
+    def evaluate(self, epoch: int, epoch_size: int):
+        self.model.eval()
+        samples = self.get_samples(
+            start_idx=epoch * epoch_size, epoch_size=epoch_size, split=SplitType.VAL, evaluate=True
+        )
+        preference = sum(samples) / len(samples)
+        print(f"Preference: {preference}, minimum: {min(samples)}, maximum: {max(samples)}")
+        self.model.train()
+
     def train(self, epoch_size: int = 128):
+        if self.run_evaluation:
+            self.evaluate(epoch=0, epoch_size=32)
         for epoch in range(self.config.training_hyperparameters.steps):
             self.step(epoch=epoch, epoch_size=epoch_size)
+            if self.run_evaluation:
+                self.evaluate(epoch=0, epoch_size=32)
 
     def step(self, epoch: int, epoch_size: int):
         output_suffix = f"/checkpoint-{epoch}" if epoch < self.config.training_hyperparameters.steps - 1 else ""
@@ -167,38 +196,78 @@ class IterativeDirectPreferenceTrainer:
             trainer.train(resume_from_checkpoint=self.config.model_name)
         else:
             trainer.train()
-        trainer.save_model()
+
+        if epoch % training_args.save_steps == training_args.save_steps - 1:
+            trainer.save_model()
 
         self.model = trainer.model
 
-    def get_samples(self, start_idx: int, epoch_size: int) -> Dataset:
+    def get_samples(
+        self, start_idx: int, epoch_size: int, split: SplitType = SplitType.TRAIN, evaluate: bool = False
+    ) -> Dataset:
         if isinstance(self.dataset, JudgePreferencesDataset):
             return self.convert_dataset([self.dataset])
 
         samples = []
         for i in range(epoch_size):
-            new_samples = self.generate_one_round_samples(idx=start_idx + i)
+            new_samples = self.generate_one_round_samples(idx=start_idx + i, split=split, evaluate=evaluate)
             samples.extend(new_samples)
 
+        if evaluate:
+            return samples
         return self.convert_dataset([JudgePreferencesDataset(train_data=samples, val_data=[], test_data=[])])
 
-    def generate_one_round_samples(self, idx: int):
+    def generate_one_round_samples(self, idx: int, split: SplitType = SplitType.TRAIN, evaluate: bool = False):
         self.logger.warn(f"Starting round {idx}")
-        example = self.dataset.get_example(idx=idx, split=SplitType.TRAIN)
+        example = self.dataset.get_example(idx=idx, split=split)
 
         llm_class = TrainUtils.get_llm_class(self.config)
         internal_model = llm_class(
             alias=IterativeDirectPreferenceTrainer.DEFAULT_DEBATER_ALIAS,
             file_path=None,
             is_debater=True,
+            generation_params=GenerationParams(max_new_tokens=self.max_new_tokens)
         )
         internal_model.model = self.model
         internal_model.tokenizer = self.tokenizer
         internal_model.generation_config = internal_model.create_default_generation_config(
-            is_debater=True, generation_params=GenerationParams()
+            is_debater=True, generation_params=GenerationParams(max_new_tokens=self.max_new_tokens)
         )
         internal_model.instantiated_model = True
         internal_model.is_debater = True
+    
+        global REFERENCE_MODEL
+        if REFERENCE_MODEL is None:
+            REFERENCE_MODEL = llm_class(
+                alias=IterativeDirectPreferenceTrainer.DEFAULT_DEBATER_ALIAS,
+                file_path=None,
+                is_debater=True,
+                generation_params=GenerationParams(max_new_tokens=self.max_new_tokens)
+            )
+            REFERENCE_MODEL.model = TrainUtils.load_training_model(
+                config=self.config,
+                requires_value_head=False,
+                load_as_peft_model=bool(
+                    self.config.training_hyperparameters.supplemental.get("force_sft_as_reference", False)
+                ),
+            )
+            REFERENCE_MODEL.tokenizer = self.tokenizer
+            REFERENCE_MODEL.generation_config = internal_model.create_default_generation_config(
+                is_debater=True, generation_params=GenerationParams(max_new_tokens=self.max_new_tokens)
+            )
+            REFERENCE_MODEL.instantiated_model = True
+            REFERENCE_MODEL.is_debater = True
+
+        global SWAP
+        swap = False
+        if evaluate:
+            swap = SWAP
+            SWAP = not SWAP
+        
+        use_reference = not self.self_play or evaluate
+        a_reference = not swap and use_reference
+        b_reference = swap and use_reference
+
 
         topic = example.question
         position = example.positions[0]
@@ -256,12 +325,12 @@ class IterativeDirectPreferenceTrainer:
         )
 
         # num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 1))
-        num_speeches = int(self.config.training_hyperparameters.supplemental.get("num_speeches", 3))
+        num_speeches = self.max_num_rounds
 
         original_debater_a = Debater(
             name=constants.DEFAULT_DEBATER_A_NAME,
             prompt=prompt_a,
-            model=internal_model,
+            model=REFERENCE_MODEL if a_reference else internal_model,
             num_speeches=num_speeches,
             speech_format=self.config.speech_structure[0].debater_format.get_speech_format(
                 name=constants.DEFAULT_DEBATER_A_NAME,
@@ -274,7 +343,7 @@ class IterativeDirectPreferenceTrainer:
         original_debater_b = Debater(
             name=constants.DEFAULT_DEBATER_B_NAME,
             prompt=prompt_b,
-            model=internal_model,
+            model=REFERENCE_MODEL if b_reference else internal_model,#model_b,
             num_speeches=num_speeches,
             speech_format=self.config.speech_structure[0].debater_format.get_speech_format(
                 name=constants.DEFAULT_DEBATER_B_NAME,
@@ -309,6 +378,54 @@ class IterativeDirectPreferenceTrainer:
             ),
             num_speeches=num_speeches,
         )
+
+        if evaluate:
+            non_random_judge.model.evaluate = True
+            debate_round = DebateRound(
+                first_debater=original_debater_a,
+                second_debater=original_debater_b,
+                judge=non_random_judge,
+                metadata=[question_metadata],
+            )
+            summary = debate_round()
+            non_random_judge.model.evaluate = False
+            summary = summary[0]
+            
+            print(f"Speeches: {a_reference=} {b_reference=}")
+            print("A ", summary.transcript.speeches[0].content)
+            print("B ", summary.transcript.speeches[1].content)
+
+            transcript_json = non_random_judge.transcripts[0].json_value()
+
+            debater = constants.DEFAULT_DEBATER_B_NAME if a_reference else constants.DEFAULT_DEBATER_A_NAME
+            decision = transcript_json["speeches"][-1]["supplemental"]["probabilistic_decision"][debater]
+            correct_preference = decision if correct_index == 0 else 1 - decision
+            incorrect_preference = 1 - correct_preference
+
+            wandb.log(
+                {
+                    "eval/preference": decision, 
+                    "eval/true_debater": correct_preference, 
+                    "eval/false_debater": incorrect_preference,  
+                    "eval/step": self.eval_step
+                }
+            )
+            if correct_index == 0 and debater == constants.DEFAULT_DEBATER_A_NAME:
+                wandb.log({"eval_first_true/preference": decision, "eval_first_true/step": self.first_true_step})
+                self.first_true_step += 1
+            elif correct_index == 0 and debater == constants.DEFAULT_DEBATER_B_NAME:
+                wandb.log({"eval_second_false/preference": decision, "eval_second_false/step": self.second_false_step})
+                self.second_false_step += 1
+            elif correct_index == 1 and debater == constants.DEFAULT_DEBATER_A_NAME:
+                wandb.log({"eval_first_false/preference": decision, "eval_first_false/step": self.first_false_step})
+                self.first_false_step += 1
+            else:
+                wandb.log({"eval_second_true/preference": decision, "eval_second_true/step": self.second_true_step})
+                self.second_true_step += 1
+
+            to_return = [decision]
+            self.eval_step += 1
+            return to_return
 
         debater_a = BestOfNDebater(
             debater=original_debater_a,
@@ -349,4 +466,5 @@ class IterativeDirectPreferenceTrainer:
             print("B ", summary.transcript.speeches[1].content)
 
         transcript_json = random_judge.transcripts[0].json_value()
-        return JudgePreferencesLoader.process_row(transcript_json)
+        to_return = JudgePreferencesLoader.process_row(transcript_json)
+        return to_return

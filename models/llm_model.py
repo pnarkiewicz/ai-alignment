@@ -8,7 +8,7 @@ import os
 import random
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Optional, Type
+from typing import Any, Optional
 
 import numpy as np
 import torch
@@ -30,7 +30,6 @@ from models.model import (
 from models.openai_model import OpenAIModel
 from prompts import RoleType
 from utils import get_device, logger_utils, string_utils, timer
-from utils.constants import DEBUG, GENERATION_LEN
 
 HAVE_FLASH = False
 try:
@@ -44,7 +43,7 @@ except ImportError:
 class LLMInput(BaseModel):
     instruction: str
     input: str
-    extra_suffix: Optional[str]
+    extra_suffix: str | None = None
 
 
 class LLModel(Model):
@@ -60,18 +59,18 @@ class LLModel(Model):
     def __init__(
         self,
         alias: str,
-        file_path: Optional[str] = None,
+        file_path: str | None = None,
         is_debater: bool = True,
         nucleus: bool = True,
         instruction_prefix: str = "",
         instruction_suffix: str = "",
         requires_file_path: bool = True,
-        probe_hyperparams: Optional[ProbeHyperparams] = None,
-        max_mini_batch_size: Optional[int] = None,
-        tokenizer_file_path: Optional[str] = None,
+        probe_hyperparams: ProbeHyperparams | None = None,
+        max_mini_batch_size: int | None = None,
+        tokenizer_file_path: str | None = None,
         quantize: bool = True,
-        generation_params: GenerationParams = GenerationParams(),
-        peft_base_model: Optional[str] = None,
+        generation_params: GenerationParams | None = None,
+        peft_base_model: str | None = None,
         **kwargs,
     ):
         """
@@ -90,6 +89,8 @@ class LLModel(Model):
             tokenizer_file_path: if the tokenizer has a separate file path, fill this in.
                 Defaults to the same as the file_path
         """
+        if generation_params is None:
+            generation_params = GenerationParams()
         super().__init__(alias=alias, is_debater=is_debater)
         torch.cuda.empty_cache()
         self.logger = logger_utils.get_default_logger(__name__)
@@ -140,7 +141,7 @@ class LLModel(Model):
     ) -> GenerationConfig:
         """Creates a default generation config so that the model can generate text"""
         config_terms = {
-            "max_new_tokens": GENERATION_LEN if DEBUG else generation_params.max_new_tokens,
+            "max_new_tokens": generation_params.max_new_tokens,
             "num_return_sequences": 1,
             "output_scores": True,
             "return_dict_in_generate": True,
@@ -181,12 +182,13 @@ class LLModel(Model):
 
     @classmethod
     def get_bnb_config(cls) -> BitsAndBytesConfig:
-        return BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16,
-        )
+        return None
+        # return BitsAndBytesConfig(
+        #     load_in_4bit=True,
+        #     bnb_4bit_use_double_quant=True,
+        #     bnb_4bit_quant_type="nf4",
+        #     bnb_4bit_compute_dtype=torch.bfloat16,
+        # )
 
     @classmethod
     def instantiate_hf_model(
@@ -195,12 +197,13 @@ class LLModel(Model):
         requires_token: bool = False,
         use_cache: bool = True,
         quantize: bool = True,
-        peft_base_model: Optional[str] = None,
+        peft_base_model: str | None = None,
     ) -> tuple[AutoTokenizer, AutoModelForCausalLM]:
         local_rank = int(os.environ.get("LOCAL_RANK", "0"))
         device_map = {"": local_rank}
 
         device = get_device()
+        quantize = False
         if not torch.cuda.is_available():
             quantize = False
             print("CUDA not available, disabling quantization")
@@ -209,14 +212,14 @@ class LLModel(Model):
 
         model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=peft_base_model or file_path,
-            device_map=device_map,
+            device_map="auto",
             trust_remote_code=True,
             use_flash_attention_2=HAVE_FLASH,
             use_cache=use_cache,
             token=os.getenv("META_ACCESS_TOKEN") if requires_token else None,
             quantization_config=LLModel.get_bnb_config() if quantize else None,
             torch_dtype=None if quantize else torch.bfloat16,
-        ).to(device)
+        )#.to(device)
 
         if peft_base_model:
             model = PeftModel.from_pretrained(
@@ -230,9 +233,9 @@ class LLModel(Model):
         self,
         file_path: str,
         requires_token: bool = False,
-        tokenizer_file_path: Optional[str] = "",
+        tokenizer_file_path: str | None = "",
         quantize: bool = True,
-        peft_base_model: Optional[str] = None,
+        peft_base_model: str | None = None,
     ) -> tuple[AutoTokenizer, AutoModelForCausalLM]:
         """Constructs the tokenizer and huggingface model at the specified filepath"""
         tokenizer = LLModel.instantiate_tokenizer(
@@ -363,7 +366,6 @@ class LLModel(Model):
 
         def create_new_generation_config():
             config_to_use = copy.deepcopy(self.generation_config)
-            config_to_use.max_new_tokens = GENERATION_LEN if DEBUG else max_new_tokens
             config_to_use.num_return_sequences = num_return_sequences
             return config_to_use
 
@@ -395,7 +397,7 @@ class LLModel(Model):
         sequences, input_lengths, logits = generate_output(input_strs=input_strs)
 
         decoded_outputs = []
-        for i, row in enumerate(sequences):
+        for i, _ in enumerate(sequences):
             if self.is_debater or speech_structure != SpeechStructure.DECISION:
                 prompt_tokens = sequences[i][: input_lengths[i]]
                 response_tokens = sequences[i][input_lengths[i] :]
@@ -412,6 +414,7 @@ class LLModel(Model):
             else:
                 internal_representations = []
                 if isinstance(self.model, LLModuleWithLinearProbe):
+                    outputs = None
                     (a_score, b_score), internal_representations = outputs[i]
                 else:
                     a_score = get_string_log_prob(constants.DEFAULT_DEBATER_A_NAME, logits, i)
@@ -436,15 +439,15 @@ class LLModel(Model):
 
         return decoded_outputs
 
-    def copy(self, alias: str, is_debater: Optional[bool] = None, nucleus: bool = False) -> LLModel:
+    def copy(self, alias: str, is_debater: bool | None = None, nucleus: bool = False) -> LLModel:
         """Generates a deepcopy of this model"""
         copy = LLModel(
             alias=alias,
-            is_debater=self.is_debater if is_debater == None else is_debater,
+            is_debater=self.is_debater if is_debater is None else is_debater,
             nucleus=nucleus,
             generation_params=self.generation_params,
         )
-        copy.is_debater = self.is_debater if is_debater == None else is_debater
+        copy.is_debater = self.is_debater if is_debater is None else is_debater
         copy.tokenizer = self.tokenizer
         copy.model = self.model
         copy.generation_config = self.generation_config
@@ -461,12 +464,12 @@ class LlamaModel(LLModel):
     def __init__(
         self,
         alias: str,
-        file_path: Optional[str] = None,
+        file_path: str | None = None,
         is_debater: bool = True,
         nucleus: bool = True,
-        probe_hyperparams: Optional[ProbeHyperparams] = None,
-        generation_params: GenerationParams = GenerationParams(),
-        peft_base_model: Optional[str] = None,
+        probe_hyperparams: ProbeHyperparams | None = None,
+        generation_params: GenerationParams | None = None,
+        peft_base_model: str | None = None,
     ):
         super().__init__(
             alias=alias,
@@ -485,15 +488,15 @@ class LlamaModel(LLModel):
         if self.model:
             self.model.config.max_position_embeddings = constants.MAX_LENGTH
 
-    def copy(self, alias: str, is_debater: Optional[bool] = None, nucleus: bool = False) -> LLModel:
+    def copy(self, alias: str, is_debater=None, nucleus: bool = False) -> LLModel:
         """Generates a deepcopy of this model"""
         copy = LlamaModel(
             alias=alias,
-            is_debater=self.is_debater if is_debater == None else is_debater,
+            is_debater=self.is_debater if is_debater is None else is_debater,
             nucleus=nucleus,
             generation_params=self.generation_params,
         )
-        copy.is_debater = self.is_debater if is_debater == None else is_debater
+        copy.is_debater = self.is_debater if is_debater is None else is_debater
         copy.tokenizer = self.tokenizer
         copy.model = self.model
         copy.generation_config = self.generation_config
@@ -511,12 +514,12 @@ class MistralModel(LLModel):
     def __init__(
         self,
         alias: str,
-        file_path: Optional[str] = None,
+        file_path: str | None = None,
         is_debater: bool = True,
         nucleus: bool = True,
-        probe_hyperparams: Optional[ProbeHyperparams] = None,
-        generation_params: GenerationParams = GenerationParams(),
-        peft_base_model: Optional[str] = None,
+        probe_hyperparams: ProbeHyperparams | None = None,
+        generation_params: GenerationParams | None = None,
+        peft_base_model: str | None = None,
     ):
         super().__init__(
             alias=alias,
@@ -535,15 +538,15 @@ class MistralModel(LLModel):
         if self.model:
             self.model.config.sliding_window = constants.MAX_LENGTH
 
-    def copy(self, alias: str, is_debater: Optional[bool] = None, nucleus: bool = False) -> LLModel:
+    def copy(self, alias: str, is_debater: bool | None = None, nucleus: bool = False) -> LLModel:
         """Generates a deepcopy of this model"""
         copy = MistralModel(
             alias=alias,
-            is_debater=self.is_debater if is_debater == None else is_debater,
+            is_debater=self.is_debater if is_debater is None else is_debater,
             nucleus=nucleus,
             generation_params=self.generation_params,
         )
-        copy.is_debater = self.is_debater if is_debater == None else is_debater
+        copy.is_debater = self.is_debater if is_debater is None else is_debater
         copy.tokenizer = self.tokenizer
         copy.model = self.model
         copy.generation_config = self.generation_config
@@ -562,13 +565,16 @@ class Llama3Model(LLModel):
     def __init__(
         self,
         alias: str,
-        file_path: Optional[str] = None,
+        file_path: str | None = None,
         is_debater: bool = True,
         nucleus: bool = True,
-        probe_hyperparams: Optional[ProbeHyperparams] = None,
-        generation_params: GenerationParams = GenerationParams(),
-        peft_base_model: Optional[str] = None,
+        probe_hyperparams: ProbeHyperparams | None = None,
+        generation_params: GenerationParams | None = None,
+        peft_base_model: str | None = None,
     ):
+        if generation_params is None:
+            generation_params = GenerationParams()
+
         super().__init__(
             alias=alias,
             file_path=file_path,
@@ -584,24 +590,25 @@ class Llama3Model(LLModel):
             peft_base_model=peft_base_model,
         )
 
-    def copy(self, alias: str, is_debater: Optional[bool] = None, nucleus: bool = False) -> LLModel:
+    def copy(self, alias: str, is_debater=None, nucleus: bool = False) -> LLModel:
         """Generates a deepcopy of this model"""
         copy = Llama3Model(
             alias=alias,
-            is_debater=self.is_debater if is_debater == None else is_debater,
+            is_debater=self.is_debater if is_debater is None else is_debater,
             nucleus=nucleus,
             generation_params=self.generation_params,
         )
-        copy.is_debater = self.is_debater if is_debater == None else is_debater
+        copy.is_debater = self.is_debater if is_debater is None else is_debater
         copy.tokenizer = self.tokenizer
         copy.model = self.model
         copy.generation_config = self.generation_config
         return copy
 
-    def create_default_generation_config(
-        self, is_debater: bool = True, generation_params: GenerationParams = GenerationParams()
-    ) -> GenerationConfig:
+    def create_default_generation_config(self, is_debater: bool = True, generation_params=None) -> GenerationConfig:
         """Creates a default generation config so that the model can generate text"""
+        if generation_params is None:
+            generation_params = GenerationParams()
+
         generation_config = super().create_default_generation_config(
             is_debater=is_debater, generation_params=generation_params
         )
@@ -616,11 +623,13 @@ class StubLLModel(LLModel):
     def __init__(
         self,
         alias: str,
-        file_path: Optional[str] = None,
+        file_path=None,
         is_debater: bool = True,
         nucleus: bool = True,
-        generation_params: GenerationParams = GenerationParams(),
+        generation_params=None,
     ):
+        if generation_params is None:
+            generation_params = GenerationParams()
         super().__init__(
             alias=alias,
             file_path=file_path,
@@ -632,11 +641,11 @@ class StubLLModel(LLModel):
             generation_params=generation_params,
         )
 
-    def copy(self, alias: str, is_debater: Optional[bool] = None, nucleus: bool = False) -> LLModel:
+    def copy(self, alias: str, is_debater=None, nucleus: bool = False) -> LLModel:
         """Generates a deepcopy of this model"""
         return StubLLModel(
             alias=alias,
-            is_debater=self.is_debater if is_debater == None else is_debater,
+            is_debater=self.is_debater if is_debater is None else is_debater,
             nucleus=nucleus,
             generation_params=self.generation_params,
         )
@@ -649,7 +658,7 @@ class StubLLModel(LLModel):
 
 
 class LLModuleWithLinearProbe(nn.Module):
-    def __init__(self, base_model: LLModel, linear_idxs: Optional[list[int]] = None, file_path: str = ""):
+    def __init__(self, base_model: LLModel, linear_idxs: list[int] | None = None, file_path: str = ""):
         super().__init__()
         self.linear_idxs = linear_idxs or [-1]
         self.base_model = base_model.model.to(get_device())
@@ -682,13 +691,13 @@ class LLModuleWithLinearProbe(nn.Module):
     def generate(self, input_ids: torch.tensor, **kwargs) -> list[tuple(tuple(float, float), torch.tensor)]:
         return self.forward(input_ids=input_ids)
 
-    def forward(self, input_ids: Optional[torch.tensor] = None) -> list[tuple(tuple(float, float), torch.tensor)]:
+    def forward(self, input_ids=None) -> list[tuple(tuple(float, float), torch.tensor)]:
         batch_size = input_ids.shape[0]
 
         base_model_output = self.base_model(input_ids=input_ids.to("cuda"), output_hidden_states=True)
 
         hidden_states = [[] for i in range(batch_size)]
-        for i, layer in enumerate(base_model_output.hidden_states):
+        for _, layer in enumerate(base_model_output.hidden_states):
             for j in range(batch_size):
                 hidden_states[j].append(layer[j, -1, :])
 
@@ -716,7 +725,7 @@ class LLMType(Enum):
     STUB_LLM = auto()
     LLAMA3 = auto()
 
-    def get_llm_class(self) -> Type[LLModel]:
+    def get_llm_class(self):
         if self == LLMType.LLAMA:
             return LlamaModel
         elif self == LLMType.MISTRAL:
@@ -770,7 +779,6 @@ class TokenizerStub:
         if not isinstance(input_string, str) or not isinstance(input_string, list):
             return input_string
 
-        length = len(input_string)
         if isinstance(input_string, str):
             input_string = [input_string]
         input_ids = self(input_string).input_ids
