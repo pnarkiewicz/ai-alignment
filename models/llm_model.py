@@ -30,7 +30,6 @@ from models.model import (
 from models.openai_model import OpenAIModel
 from prompts import RoleType
 from utils import get_device, logger_utils, string_utils, timer
-from utils.constants import DEBUG, GENERATION_LEN
 
 HAVE_FLASH = False
 try:
@@ -367,7 +366,6 @@ class LLModel(Model):
 
         def create_new_generation_config():
             config_to_use = copy.deepcopy(self.generation_config)
-            # config_to_use.max_new_tokens = max_new_tokens
             config_to_use.num_return_sequences = num_return_sequences
             return config_to_use
 

@@ -196,7 +196,9 @@ class IterativeDirectPreferenceTrainer:
             trainer.train(resume_from_checkpoint=self.config.model_name)
         else:
             trainer.train()
-        trainer.save_model()
+
+        if epoch % training_args.save_steps == training_args.save_steps - 1:
+            trainer.save_model()
 
         self.model = trainer.model
 
