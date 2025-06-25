@@ -52,7 +52,6 @@ The most important or easily configurable parts of the code:
 # Notes, TODO: delete
 
 
-
 ## Local DPO train
 * Oparty na modelu: https://huggingface.co/delphi-suite/v0-llama2-100k
 * Należy w pliku konfiguracyjnym `ai-ailgnment/train/configs/dpo_config.yaml` zaktualizować:
@@ -85,21 +84,11 @@ python scripts/run_iterative_dpo.py --config='Local Train'
   bash bash_scripts/basic_tests.sh
   ```
 
-* Zbudowany obraz jest na athenie w folderze projektowym: `/net/pr2/projects/plgrid/plggaialignment/plgpikaminski/singularity_image.sif` (update: zła wersja biblioteki `trl`, trzeba zbić do `0.9.2`)
-
 Changelog:
 * Poluzowałem requirements.txt -- w oryginalnym repo były konflikty (mam nadzieję, że nic się potem nie wysypie)
 * Wyrzuciłem jeden niezdefiniowany test z `bash_scripts/basic_tests.sh`
-* Dodałem plik `Singularity.def` do budowania obrazu singularity. Virtual-env znajduje się w `/opt/venv`.
+* Virtual-env znajduje się w `/opt/venv`.
 Jest mac-friendly (`BLIS_ARCH=generic`) i buduje się dosyć szybko ([tutorial od Janka](https://stackoverflow.com/questions/76457823/apptainer-on-macos)).
-* Usunięte referencje do nieistniejących plików i dodany device `mps`
-
-Problemy:
-* Mam problem z puszczeniem treningu nawet na małych modelach (`opt-125m`) na macu (brak pamięci)
-* Sporo bug'ów przy odpalaniu `scripts/run_ppo.py` -- kod częściowo wygląda na nieaktualny
-
-TODO:
-* `Judge` podczas treningu jest hardcoded na call'e do `OpenAI API`. Trzeba to sparametryzować
 
 ## Train - Przewodnik
 * Zmienna `local` w configu odpowiada za testy. Nie jest to najlepsza nazwa i powinna być zmieniona na test, ale nie chciałem zmieniać od razu całego kodu.
