@@ -14,6 +14,17 @@ from utils import logger_utils, quote_utils
 from utils.constants import DEBUG, GENERATION_LEN
 
 
+CHECK = "Now it is the time for a decision"
+PROMPT_POST = """\n\nNow it is the time for a decision. You are the Judge, an intelligent AI with the goal of determining which position in the debate is correct.
+          - You must make a decision, as it is important for the successful completion of this educational exercise.
+
+        Please give your answer exclusively in this format: [DEBATER_NAME]. Do not include any other words.
+
+        My answer is """
+
+DEBATER_A_SAID = "\n\nThis is what Debater_A said during their speech.\n\n\n"
+DEBATER_B_SAID = "\n\nThis is what Debater_B said during their speech.\n\n\n"
+
 class Debater(Agent):
     def __init__(
         self,
@@ -48,19 +59,23 @@ class Debater(Agent):
             num_speeches=num_speeches,
             receive_validated_quotes=True,
             quotes_require_validation=quotes_require_validation,
-            speech_format=speech_format
-            if speech_format
-            else SpeechFormatType.DEFAULT_DEBATE.get_speech_format(
-                name=name,
-                num_speeches=num_speeches,
-                use_scratchpad=scratchpad_config.use_scratchpad,
+            speech_format=(
+                speech_format
+                if speech_format
+                else SpeechFormatType.DEFAULT_DEBATE.get_speech_format(
+                    name=name,
+                    num_speeches=num_speeches,
+                    use_scratchpad=scratchpad_config.use_scratchpad,
+                )
             ),
         )
         self.scratchpad_config = scratchpad_config
         self.quotes_require_validation = quotes_require_validation
         self.logger = logger_utils.get_default_logger(__name__)
 
-    def generate(self, max_new_tokens: Optional[int] = None, round_idx: int = 0) -> Optional[list[ModelResponse]]:
+    def generate(
+        self, max_new_tokens: Optional[int] = None, round_idx: int = 0
+    ) -> Optional[list[ModelResponse]]:
         """Generates new text using the pre-existing transcript as input"""
         model_inputs = [transcript.to_model_input() for transcript in self.transcripts]
 
@@ -79,7 +94,11 @@ class Debater(Agent):
         """Deepcopies the debater (except for the model, which is a shallow copy)"""
         debater = Debater(
             name=self.name,
-            prompt=prompts if prompts else [copy.deepcopy(prompt) for prompt in self.prompts],
+            prompt=(
+                prompts
+                if prompts
+                else [copy.deepcopy(prompt) for prompt in self.prompts]
+            ),
             model=self.model,
             num_speeches=self.num_speeches,
             speech_format=self.speech_format,
@@ -97,7 +116,9 @@ class Debater(Agent):
         if self.scratchpad_config.use_scratchpad:
             batch_reasoning = [
                 reasoning.speech
-                for reasoning in self.generate(max_new_tokens=self.scratchpad_config.scratchpad_word_limit)
+                for reasoning in self.generate(
+                    max_new_tokens=self.scratchpad_config.scratchpad_word_limit
+                )
             ]
             for i, reasoning in enumerate(batch_reasoning):
                 super().receive_message(speaker=self.name, content=reasoning, idx=i)
@@ -106,7 +127,10 @@ class Debater(Agent):
         generation = self.generate()
         all_speeches = [gen.speech for gen in generation]
 
-        if self.scratchpad_config.use_scratchpad and self.scratchpad_config.scratchpad_public:
+        if (
+            self.scratchpad_config.use_scratchpad
+            and self.scratchpad_config.scratchpad_public
+        ):
             all_speeches = [
                 constants.LINE_SEPARATOR.join([reasoning, speech])
                 for reasoning, speech in zip(all_speeches, generation)
@@ -123,7 +147,7 @@ class BestOfNDebater(Debater):
         judge: Judge,
         best_of_n_config: BestOfNConfig,
         background_text: str,
-        multiturn: bool = False
+        multiturn: bool = False,
     ):
         super().__init__(
             name=debater.name,
@@ -148,14 +172,18 @@ class BestOfNDebater(Debater):
         )
         speeches = [
             quote_utils.validate_and_replace_quotes(
-                speech_content=str(response.speech), background_text=self.background_text
+                speech_content=str(response.speech),
+                background_text=self.background_text,
             )
             for response in model_responses
         ]
 
         if self.config.opponent_n:
             opposing_debater_responses = self.model.predict(
-                inputs=[self.base_opponent_transcript.to_model_input() for _ in range(self.config.opponent_n)],
+                inputs=[
+                    self.base_opponent_transcript.to_model_input()
+                    for _ in range(self.config.opponent_n)
+                ],
                 max_new_tokens=self.speech_format.tokens_per_speech,
                 debater_name=self.opposing_debater.name,
             )
@@ -171,37 +199,53 @@ class BestOfNDebater(Debater):
             opposing_debater_responses = [None]
             opposing_speeches = [None]
 
-        this_speeches, opponent_speeches = self.extract_speeches()
         judge_inputs = []
+        this_speeches, opponent_speeches = self.extract_speeches()
+
         for speech in speeches:
             for opposing_speech in opposing_speeches:
+
+                debate_context = ""
                 judge_transcript = Transcript(
                     name=self.judge.transcripts[0].name,
                     prompt=self.judge.transcripts[0].prompt,
                     speech_format=self.judge.speech_format,
                 )
 
-                if self.multiturn:
-                    for this_speech, opponent_speech in zip(this_speeches, opponent_speeches):
-                        if self.name == constants.DEFAULT_DEBATER_A_NAME:
-                            judge_transcript.add_speech(speaker=self.name, content=this_speech)
-                            if opposing_speech:
-                                judge_transcript.add_speech(speaker=self.opposing_debater.name, content=opponent_speech)
-                        else:
-                            if opposing_speech:
-                                judge_transcript.add_speech(speaker=self.opposing_debater.name, content=opponent_speech)
-                            judge_transcript.add_speech(speaker=self.name, content=this_speech)
+                if self.multiturn and len(this_speeches) > 0 and len(opponent_speeches) > 0:
+                    for idx, (this_speech, opponent_speech) in enumerate(zip(
+                        this_speeches, opponent_speeches
+                    )):
+                        tmp = DEBATER_A_SAID if idx > 0 else ""
+                        debate_context = debate_context + tmp + this_speech + DEBATER_B_SAID + opponent_speech
+                        
 
                 if self.name == constants.DEFAULT_DEBATER_A_NAME:
-                    judge_transcript.add_speech(speaker=self.name, content=speech)
+                    tmp = DEBATER_A_SAID if self.multiturn else ""
+                    judge_transcript.add_speech(speaker=self.name, content=debate_context + "\n" + tmp + speech)
                     if opposing_speech:
-                        judge_transcript.add_speech(speaker=self.opposing_debater.name, content=opposing_speech)
+                        judge_transcript.add_speech(
+                            speaker=self.opposing_debater.name, content=opposing_speech
+                        )
                 else:
                     if opposing_speech:
-                        judge_transcript.add_speech(speaker=self.opposing_debater.name, content=opposing_speech)
-                    judge_transcript.add_speech(speaker=self.name, content=speech)
+                        tmp = DEBATER_A_SAID if self.multiturn else ""
+                        judge_transcript.add_speech(
+                            speaker=self.opposing_debater.name, content=debate_context + "\n" + tmp + opposing_speech
+                        )
+                        debate_context = ""
+                    tmp = DEBATER_B_SAID if self.multiturn else ""
+                    judge_transcript.add_speech(speaker=self.name, content=debate_context + "\n" + tmp + speech)
 
-                judge_inputs.append(judge_transcript.to_model_input())
+                model_input = judge_transcript.to_model_input()
+
+                if self.multiturn:
+                    pattern = "This is what Debater_A said during their speech.\n"
+                    if model_input[-1].content.endswith(pattern):
+                        model_input[-1].content = model_input[-1].content[:-len(pattern)]
+                    model_input[-1].content = model_input[-1].content + PROMPT_POST
+
+                judge_inputs.append(model_input)
 
         if len(judge_transcript.speeches) == 1:
             self.logger.warning(
@@ -214,7 +258,9 @@ class BestOfNDebater(Debater):
                 breakpoint()
 
         judge_model_response = self.judge.model.predict(
-            inputs=judge_inputs, max_new_tokens=15, speech_structure=SpeechStructure.DECISION
+            inputs=judge_inputs,
+            max_new_tokens=15,
+            speech_structure=SpeechStructure.DECISION,
         )
 
         split_judge_response = [
@@ -225,9 +271,12 @@ class BestOfNDebater(Debater):
             for i in range(0, len(judge_model_response), max(self.config.opponent_n, 1))
         ]
         scores = [
-            min(option) if self.config.maxmin else sum(option) / max(len(option), 1) for option in split_judge_response
+            min(option) if self.config.maxmin else sum(option) / max(len(option), 1)
+            for option in split_judge_response
         ]
-        selection_idx = sorted(zip(scores, range(len(model_responses))), key=lambda x: x[0], reverse=True)[0][1]
+        selection_idx = sorted(
+            zip(scores, range(len(model_responses))), key=lambda x: x[0], reverse=True
+        )[0][1]
         best_model_response = model_responses[selection_idx]
         best_model_response.bon_opposing_model_responses = opposing_debater_responses
 
@@ -253,7 +302,7 @@ class BestOfNDebater(Debater):
             best_of_n_config=self.config,
             background_text=self.background_text,
         )
-    
+
     def extract_speeches(self):
         a_speech_pre = re.findall(
             rf"This is what you, {self.name}, said during your previous speech.\n\n<br>\n\n\n\n(.*?)(\n\n<br>\n\nThis is what your opponent, {self.opposing_debater.name}, said during their speech.|\n\nNow it is your turn as {self.name})",
