@@ -4,6 +4,10 @@ This is a fork extending [nyu-debate-modeling](https://github.com/samuelarnesen/
 
 ## Project info
 
+This project explores debate-based protocols for achieving superalignment—the alignment of stronger AI models to the preferences of weaker models. Our work builds on and extends a prior research project and extend it based on feedback available on [OpenReview](https://openreview.net/forum?id=gAEEjGv5Oa).
+
+We extend this work with additional protocols, algorithms and datasets, along with additional code optimizations.
+
 ## Novelty
 
 
