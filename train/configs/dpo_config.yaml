@@ -1,3 +1,215 @@
+GSM8k - 5:
+    model_name: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-3B-Instruct
+    target: debater
+    llm_type: llama
+    max_length: 4096
+    prompt_config:
+        file_path: prompts/configs/gsm8k.yaml
+        default_prompt_name: Debate Prompt
+        use_hardcoded_topics: False
+        hardcoded_topic_config: null
+    training_hyperparameters:
+        steps: 52
+        num_train_epochs: 1
+        per_device_train_batch_size: 1
+        gradient_accumulation_steps: 1
+        optim: paged_adamw_32bit
+        learning_rate: 3e-5
+        max_grad_norm: 0.0003
+        warmup_ratio: 0.03
+        lr_scheduler_type: constant
+        peft_type: lora
+        target_module: all
+        lora_rank: 32
+        opening_speeches_only: True
+        supplemental:
+            max_new_tokens: 256
+            epoch_size: 16
+            save_steps: 10
+            reward_type: prob
+            loss_type: bon
+            multiplier: 7
+            judge_type: hf_wrapper
+            judge_model: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-1B-Instruct
+            increase_rounds: True
+            multiturn: True
+            max_num_rounds: 3
+    logging_and_saving_config:
+        logging_steps: 4
+        output_dir: checkpoints/gsm5
+    dataset:
+        dataset_type: gsm8k
+        split_type: train
+GSM8k - 4:
+    model_name: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-3B-Instruct
+    target: debater
+    llm_type: llama
+    max_length: 4096
+    prompt_config:
+        file_path: prompts/configs/gsm8k.yaml
+        default_prompt_name: Debate Prompt
+        use_hardcoded_topics: False
+        hardcoded_topic_config: null
+    training_hyperparameters:
+        steps: 52
+        num_train_epochs: 1
+        per_device_train_batch_size: 1
+        gradient_accumulation_steps: 1
+        optim: paged_adamw_32bit
+        learning_rate: 3e-5
+        max_grad_norm: 0.0003
+        warmup_ratio: 0.03
+        lr_scheduler_type: constant
+        peft_type: lora
+        target_module: all
+        lora_rank: 32
+        opening_speeches_only: True
+        supplemental:
+            max_new_tokens: 256
+            epoch_size: 16
+            save_steps: 10
+            reward_type: prob
+            loss_type: bon
+            multiplier: 7
+            judge_type: hf_wrapper
+            judge_model: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-1B-Instruct
+            increase_rounds: True
+            multiturn: True
+            max_num_rounds: 2
+    logging_and_saving_config:
+        logging_steps: 4
+        output_dir: checkpoints/gsm4
+    dataset:
+        dataset_type: gsm8k
+        split_type: train
+GSM8k - 3:
+    model_name: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-3B-Instruct
+    target: debater
+    llm_type: llama
+    max_length: 4096
+    prompt_config:
+        file_path: prompts/configs/gsm8k.yaml
+        default_prompt_name: Debate Prompt
+        use_hardcoded_topics: False
+        hardcoded_topic_config: null
+    training_hyperparameters:
+        steps: 52
+        num_train_epochs: 1
+        per_device_train_batch_size: 1
+        gradient_accumulation_steps: 1
+        optim: paged_adamw_32bit
+        learning_rate: 3e-5
+        max_grad_norm: 0.0003
+        warmup_ratio: 0.03
+        lr_scheduler_type: constant
+        peft_type: lora
+        target_module: all
+        lora_rank: 32
+        opening_speeches_only: True
+        supplemental:
+            max_new_tokens: 256
+            epoch_size: 16
+            save_steps: 10
+            reward_type: prob
+            loss_type: bon-ipo
+            multiplier: 7
+            judge_type: hf_wrapper
+            judge_model: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-1B-Instruct
+            increase_rounds: True
+            multiturn: True
+            max_num_rounds: 2
+    logging_and_saving_config:
+        logging_steps: 4
+        output_dir: checkpoints/gsm3
+    dataset:
+        dataset_type: gsm8k
+        split_type: train
+Truthful - 12:
+    model_name: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-3B-Instruct
+    target: debater
+    llm_type: llama
+    max_length: 4096
+    prompt_config:
+        file_path: prompts/configs/truthful.yaml
+        default_prompt_name: Debate Prompt
+        use_hardcoded_topics: False
+        hardcoded_topic_config: null
+    training_hyperparameters:
+        steps: 52
+        num_train_epochs: 1
+        per_device_train_batch_size: 1
+        gradient_accumulation_steps: 1
+        optim: paged_adamw_32bit
+        learning_rate: 3e-5
+        max_grad_norm: 0.0003
+        warmup_ratio: 0.03
+        lr_scheduler_type: constant
+        peft_type: lora
+        target_module: all
+        lora_rank: 32
+        opening_speeches_only: True
+        supplemental:
+            max_new_tokens: 128
+            epoch_size: 16
+            save_steps: 10
+            reward_type: prob
+            loss_type: bon-ipo
+            multiplier: 7
+            judge_type: hf_wrapper
+            judge_model: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-1B-Instruct
+            self_play: True
+            increase_rounds: True
+            multiturn: True
+            max_num_rounds: 2
+    logging_and_saving_config:
+        logging_steps: 4
+        output_dir: checkpoints/truthful_12
+    dataset:
+        dataset_type: truthful
+        split_type: train
+Truthful - 11:
+    model_name: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-3B-Instruct
+    target: debater
+    llm_type: llama
+    max_length: 4096
+    prompt_config:
+        file_path: prompts/configs/truthful.yaml
+        default_prompt_name: Debate Prompt
+        use_hardcoded_topics: False
+        hardcoded_topic_config: null
+    training_hyperparameters:
+        steps: 52
+        num_train_epochs: 1
+        per_device_train_batch_size: 1
+        gradient_accumulation_steps: 1
+        optim: paged_adamw_32bit
+        learning_rate: 3e-5
+        max_grad_norm: 0.0003
+        warmup_ratio: 0.03
+        lr_scheduler_type: constant
+        peft_type: lora
+        target_module: all
+        lora_rank: 32
+        opening_speeches_only: True
+        supplemental:
+            max_new_tokens: 128
+            epoch_size: 16
+            save_steps: 10
+            reward_type: prob
+            loss_type: bon-ipo
+            multiplier: 7
+            judge_type: hf_wrapper
+            judge_model: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-1B-Instruct
+            self_play: True
+            increase_rounds: True
+            multiturn: True
+            max_num_rounds: 3
+    logging_and_saving_config:
+        logging_steps: 4
+        output_dir: checkpoints/truthful_11
+    dataset:
+        dataset_type: truthful
+        split_type: train
 Truthful - 10:
     model_name: /net/pr2/projects/plgrid/plggaialignment/plgpikaminski/hf_models/Llama-3.2-3B-Instruct
     target: debater
