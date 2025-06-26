@@ -45,3 +45,7 @@ The most important or easily configurable parts of the code:
 * Debaters and Judges extend a common `models.models.Model` abstract class. 
 * Different trainning configurations (i.e. used algorithms, datasets, hyperparameters) are present inside `train/configs` directory.
 * Prompts supplied to the Debaters / Judge are present in `prompts/configs`
+
+## Experiments
+
+The config experiments are located in `train/configs` folder.
