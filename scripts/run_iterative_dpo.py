@@ -12,7 +12,7 @@ script_config = ScriptUtils.get_training_run_script_config(args, train_type=Trai
 
 config = TrainUtils.parse_config(config_name=script_config.config_name, config_filepath=script_config.config_filepath)
 
-wandb.init(project="huggingface")
+wandb.init(project="huggingface", config=config, name= args.configuration)
 wandb.define_metric("train/*", step_metric="train/step")
 wandb.define_metric("eval/*", step_metric="eval/step")
 wandb.define_metric("eval_first_true/*", step_metric="eval_first_true/step")

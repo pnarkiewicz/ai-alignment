@@ -97,6 +97,8 @@ class HFWrapperJudge(Model):
             prob_b = 1 - prob_a
             decision = choice_a if prob_a >= prob_b else choice_b
 
+
+            # breakpoint()
             print("a = ", prob_a)
             if DEBUG:
                 wandb.log({ "train_prob/step": self.train_step,
