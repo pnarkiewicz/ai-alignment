@@ -45,6 +45,7 @@ class IterativeDirectPreferenceTrainer:
 
     def __init__(self, config: TrainingConfig, smooth: bool = True, is_local: bool = False):
         self.eval_step = 0
+        self.evalself_step = 0
         self.logger = logger_utils.get_default_logger(__name__)
         self.is_local = is_local
         self.max_new_tokens = config.training_hyperparameters.supplemental.get(
@@ -65,6 +66,7 @@ class IterativeDirectPreferenceTrainer:
 
         self.judge_model = TrainUtils.load_judge_model(config, is_local=is_local)
         self.random_judge_model = RandomModel(alias="default-random-judge", is_debater=False)
+        self.evaluate_vs_self = config.training_hyperparameters.supplemental.get("evaluate_vs_self", False)
 
         if FLASH_ATTENTION_AVAILABLE:
             self.model = upcast_layer_for_flash_attention(self.model, torch.bfloat16)
@@ -203,7 +205,8 @@ class IterativeDirectPreferenceTrainer:
         self.model = trainer.model
 
     def get_samples(
-        self, start_idx: int, epoch_size: int, split: SplitType = SplitType.TRAIN, evaluate: bool = False
+        self, start_idx: int, epoch_size: int, split: SplitType = SplitType.TRAIN, evaluate: bool = False,
+        evaluate_vs_self: bool = False,
     ) -> Dataset:
         if isinstance(self.dataset, JudgePreferencesDataset):
             return self.convert_dataset([self.dataset])
@@ -396,7 +399,6 @@ class IterativeDirectPreferenceTrainer:
             print("B ", summary.transcript.speeches[1].content)
 
             transcript_json = non_random_judge.transcripts[0].json_value()
-
             debater = constants.DEFAULT_DEBATER_B_NAME if a_reference else constants.DEFAULT_DEBATER_A_NAME
             decision = transcript_json["speeches"][-1]["supplemental"]["probabilistic_decision"][debater]
             correct_preference = decision if correct_index == 0 else 1 - decision
@@ -425,6 +427,94 @@ class IterativeDirectPreferenceTrainer:
 
             to_return = [decision]
             self.eval_step += 1
+
+
+
+            if self.evaluate_vs_self:
+                deb_a = Debater(
+                    name=constants.DEFAULT_DEBATER_A_NAME,
+                    prompt=prompt_a,
+                    model=internal_model,
+                    num_speeches=num_speeches,
+                    speech_format=self.config.speech_structure[0].debater_format.get_speech_format(
+                        name=constants.DEFAULT_DEBATER_A_NAME,
+                        num_speeches=num_speeches,
+                        use_scratchpad=False,
+                    ),
+                    quotes_require_validation=True,
+                )
+
+                deb_b = Debater(
+                    name=constants.DEFAULT_DEBATER_B_NAME,
+                    prompt=prompt_b,
+                    model=internal_model,
+                    num_speeches=num_speeches,
+                    speech_format=self.config.speech_structure[0].debater_format.get_speech_format(
+                        name=constants.DEFAULT_DEBATER_B_NAME,
+                        num_speeches=num_speeches,
+                        use_scratchpad=False,
+                    ),
+                    quotes_require_validation=True,
+                )
+
+                random_judge = Judge(
+                    name=constants.DEFAULT_JUDGE_NAME,
+                    prompt=prompt_judge,
+                    model=self.random_judge_model,
+                    speech_format=self.config.speech_structure[0].judge_format.get_speech_format(
+                        name=constants.DEFAULT_JUDGE_NAME,
+                        num_speeches=num_speeches,
+                        use_scratchpad=False,
+                        flipped=False,
+                    ),
+                    num_speeches=num_speeches,
+                )
+
+                non_random_judge = Judge(
+                    name=constants.DEFAULT_JUDGE_NAME,
+                    prompt=prompt_judge,
+                    model=self.judge_model,
+                    speech_format=self.config.speech_structure[0].judge_format.get_speech_format(
+                        name=constants.DEFAULT_JUDGE_NAME,
+                        num_speeches=num_speeches,
+                        use_scratchpad=False,
+                        flipped=False,
+                    ),
+                    num_speeches=num_speeches,
+                )
+                debate_round = DebateRound(
+                    first_debater=original_debater_a,
+                    second_debater=original_debater_b,
+                    judge=non_random_judge,
+                    metadata=[question_metadata],
+                )
+                summary = debate_round()
+                non_random_judge.model.evaluate = False
+                summary = summary[0]
+                wandb.log(
+                    {
+                        "evalself/preference": decision, 
+                        "evalself/true_debater": correct_preference, 
+                        "evalself/false_debater": incorrect_preference,  
+                        "evalself/step": self.evalself_step
+                    }
+                )
+                if correct_index == 0 and debater == constants.DEFAULT_DEBATER_A_NAME:
+                    wandb.log({"evalself_first_true/preference": decision, "evalself_first_true/step": self.first_true_step})
+                    self.first_true_step += 1
+                elif correct_index == 0 and debater == constants.DEFAULT_DEBATER_B_NAME:
+                    wandb.log({"evalself_second_false/preference": decision, "evalself_second_false/step": self.second_false_step})
+                    self.second_false_step += 1
+                elif correct_index == 1 and debater == constants.DEFAULT_DEBATER_A_NAME:
+                    wandb.log({"evalself_first_false/preference": decision, "evalself_first_false/step": self.first_false_step})
+                    self.first_false_step += 1
+                else:
+                    wandb.log({"evalself_second_true/preference": decision, "evalself_second_true/step": self.second_true_step})
+                    self.second_true_step += 1
+
+                to_return = [decision]
+                self.evalself_step += 1
+
             return to_return
 
         debater_a = BestOfNDebater(

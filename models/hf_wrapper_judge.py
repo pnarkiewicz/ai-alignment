@@ -97,8 +97,6 @@ class HFWrapperJudge(Model):
             prob_b = 1 - prob_a
             decision = choice_a if prob_a >= prob_b else choice_b
 
-
-            # breakpoint()
             print("a = ", prob_a)
             if DEBUG:
                 wandb.log({ "train_prob/step": self.train_step,
@@ -113,6 +111,18 @@ class HFWrapperJudge(Model):
                     prompt=prompt,
                 )
             )
+
+
+            transcripts_file = "/net/pr2/projects/plgrid/plggaialignment/plgpikaminski/debates_truthful/transcripts/trans1.json"
+            with open(transcripts_file, "a") as f:
+                import json
+                json.dump({
+                    "prompt": prompt,
+                    "prob_a": prob_a,
+                    "prob_b": prob_b,
+                    "decision": decision
+                }, f)
+                f.write("\n")
 
         return results
 
